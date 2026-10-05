@@ -54,12 +54,16 @@ async function keepAwake(on) {
 }
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && wantWake) keepAwake(true); });
 
+// Wide screens (computers, tablets in landscape): reading tasks show the
+// passage on the left and the questions on the right, like the real test.
+function useWide(on) { document.body.classList.toggle('wide', !!on); }
+
 // ---------- Cleanup between screens ----------
 let cleanups = [];
 function onLeave(fn) { cleanups.push(fn); }
 function go(fn) {
   cleanups.forEach(f => { try { f(); } catch (e) { } }); cleanups = [];
-  stopSpeech(); keepAwake(false); closeSheet();
+  stopSpeech(); keepAwake(false); closeSheet(); useWide(false);
   fn(); window.scrollTo(0, 0);
 }
 
@@ -933,7 +937,9 @@ function renderCTW(item, body, id) {
   });
 }
 function renderDaily(item, body, id) {
-  body.innerHTML = `<div class="doc"><span class="kind">${esc(item.kind || 'Text')}</span>${esc(item.text)}</div>${mcqHtml(item.questions, 'd')}${checkRow()}`;
+  useWide(true);
+  body.innerHTML = `<div class="split"><div class="split-left"><div class="doc" tabindex="0"><span class="kind">${esc(item.kind || 'Text')}</span>${esc(item.text)}</div></div>
+    <div class="split-right">${mcqHtml(item.questions, 'd')}${checkRow()}</div></div>`;
   $('[data-check]', body).addEventListener('click', e => {
     e.target.disabled = true; const r = gradeMcq(item.questions, 'd', body);
     record(id, r, item.questions.length); $('[data-result]', body).innerHTML = stampHtml(r, item.questions.length); afterCheck(body, id);
@@ -941,7 +947,9 @@ function renderDaily(item, body, id) {
 }
 function renderAcademic(item, body, id) {
   const passageHtml = `<h3>${esc(item.title)}</h3>${item.paras.map((p, i) => `<p><span class="pnum">¶${i + 1}</span>${esc(p)}</p>`).join('')}`;
-  body.innerHTML = `<div class="passage" tabindex="0">${passageHtml}</div>${mcqHtml(item.questions, 'a')}${checkRow('Check answers', '<button class="btn ghost" data-sheet>📄 Passage</button>')}`;
+  useWide(true);
+  body.innerHTML = `<div class="split"><div class="split-left"><div class="passage" tabindex="0" aria-label="Reading passage">${passageHtml}</div></div>
+    <div class="split-right">${mcqHtml(item.questions, 'a')}${checkRow('Check answers', '<button class="btn ghost" data-sheet>📄 Passage</button>')}</div></div>`;
   $('[data-sheet]', body).addEventListener('click', () => openSheet(item.title, passageHtml));
   $('[data-check]', body).addEventListener('click', e => {
     e.target.disabled = true; const r = gradeMcq(item.questions, 'a', body);

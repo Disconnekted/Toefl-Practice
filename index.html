@@ -304,6 +304,14 @@ body.in-sub .tabbar{ display:none; }
 .w-title{ font-family:var(--serif); font-weight:700; font-size:22px; margin:14px 0 8px; letter-spacing:0; }
 .w-body{ font-size:16px; } .w-body p{ margin:0 0 12px; }
 .w-nav{ display:flex; justify-content:space-between; align-items:center; margin-top:16px; }
+.split-left .doc, .split-left .passage{ margin-bottom:22px; }
+@media (min-width: 960px){
+  body.wide .app{ max-width:1200px; }
+  .split{ display:grid; grid-template-columns:minmax(0, 1.1fr) minmax(0, 1fr); gap:32px; align-items:start; }
+  .split-left{ position:sticky; top:calc(64px + env(safe-area-inset-top,0px)); }
+  .split-left .doc, .split-left .passage{ max-height:calc(100vh - 96px); overflow:auto; margin-bottom:0; }
+  .split .check-bar [data-sheet]{ display:none; }
+}
 .toast{ position:fixed; bottom:calc(84px + env(safe-area-inset-bottom,0px)); left:50%; transform:translateX(-50%); background:var(--ink); color:var(--card); padding:10px 16px; border-radius:6px; font-family:var(--mono); font-size:13px; max-width:90vw; z-index:100; text-align:center; }
 </style>
 </head>
