@@ -22,12 +22,15 @@ const saveSettings = () => store.set('toefl26-settings', SETTINGS);
 
 function pool(id) { return DATA[id].concat(EXTRA[id] || []); }
 function record(id, pts, tot) {
+  if (typeof markStudyDay === 'function') markStudyDay();
+  if (current && current.daily && DAILY && DAILY.steps[DAILY.i] && DAILY.steps[DAILY.i].id === id) dailyResult(pts, tot);
   buzz(tot && pts / tot >= 0.8 ? 25 : [25, 70, 25]);
   const s = STATS[id] || { sets: 0, pts: 0, tot: 0 };
   s.sets++; s.pts += pts; s.tot += tot; STATS[id] = s; store.set('toefl26-stats', STATS);
   if (tot) pushHist(id, pts / tot);
 }
 function recordAI(id, score) {
+  if (typeof markStudyDay === 'function') markStudyDay();
   const s = STATS[id] || { sets: 0, pts: 0, tot: 0 };
   s.sets++; if (score != null) s.last = score; STATS[id] = s; store.set('toefl26-stats', STATS);
 }
@@ -398,7 +401,7 @@ function aiErrorText(e) {
 const koreanNote = () => SETTINGS.korean ? ' The learner is a Korean speaker: after each improvement and correction explanation, add a brief Korean gloss in parentheses where it helps understanding.' : '';
 
 // ---------- Task registry ----------
-const MCQ_SCHEMA_NOTE = 'Each question has "q", "options" (4 strings), and "answer" (index 0-3 of the correct option). Vary which index is correct.';
+const MCQ_SCHEMA_NOTE = 'Each question has "q", "options" (4 strings), "answer" (index 0-3 of the correct option), and "why" (one short sentence explaining the answer, quoting the text where possible). Vary which index is correct.';
 const isMcq = qs => Array.isArray(qs) && qs.length >= 2 && qs.every(q => q && typeof q.q === 'string' && Array.isArray(q.options) && q.options.length >= 3 && Number.isInteger(q.answer) && q.answer >= 0 && q.answer < q.options.length);
 const isLines = ls => Array.isArray(ls) && ls.length >= 1 && ls.every(l => l && typeof l.t === 'string' && (l.s === 0 || l.s === 1));
 
@@ -413,7 +416,7 @@ const TASKS = {
     gen: 'An introductory-textbook style passage of 230-280 words split into 4 paragraphs in "paras", with 5 questions: one vocabulary-in-context, two detail, one author-purpose, one inference. ' + MCQ_SCHEMA_NOTE,
     ok: it => Array.isArray(it.paras) && it.paras.length >= 2 && isMcq(it.questions) },
   respond: { section: 'Listening', name: 'Listen and Choose a Response', blurb: 'Hear one line, pick the best reply.', how: 'Play each sentence, then choose the most natural reply. Watch for replies that repeat words from the question but don\'t answer it.', render: renderRespond,
-    gen: 'A set of 5 items. Each item has "say" (one spoken sentence a student or staff member might say on campus), "options" (4 written replies: one natural, three distractors that reuse words or answer the wrong question), and "answer" (index of the natural reply). Vary the correct index.',
+    gen: 'A set of 5 items. Each item has "say" (one spoken sentence a student or staff member might say on campus), "options" (4 written replies: one natural, three distractors that reuse words or answer the wrong question), "answer" (index of the natural reply), and "why" (one sentence explaining why it is the natural reply). Vary the correct index.',
     ok: it => Array.isArray(it.items) && it.items.length >= 3 && it.items.every(x => typeof x.say === 'string' && Array.isArray(x.options) && x.options.length >= 3 && Number.isInteger(x.answer)) },
   convo: { section: 'Listening', name: 'Listen to a Conversation', blurb: 'Two speakers on campus, then questions.', how: 'Listen to the whole conversation (no reading along). Then answer the questions. The transcript appears after you check.', render: renderListen,
     gen: 'A natural campus conversation of 7-10 turns between two people (student with professor, staff member, or classmate) about a practical problem, as "lines" with "s" (0 or 1 for the speaker), "name" (role), and "t" (what they say). Then 3 questions: main problem, a detail or suggestion, and what happens next. ' + MCQ_SCHEMA_NOTE,
@@ -425,7 +428,7 @@ const TASKS = {
     gen: 'An introductory university lecture of 140-190 words by one professor on a science, social science, or humanities topic, as "lines" with exactly one entry {"s":0,"name":"Professor","t":"..."}. Then 3 questions: main topic, a detail, and why the professor mentions an example. ' + MCQ_SCHEMA_NOTE,
     ok: it => isLines(it.lines) && isMcq(it.questions) },
   build: { section: 'Writing', name: 'Build a Sentence', blurb: 'Put word tiles in order to make a correct reply.', how: 'Tap the words in order to build a grammatical reply. One extra word in each set doesn\'t belong. Tap a placed word to send it back.', render: renderBuild,
-    gen: 'A set of 5 items. Each has "context" (a short question someone asks), "answer" (a 6-10 word grammatical reply without final punctuation, testing word order such as embedded questions, tenses, conditionals, or comparatives), "end" (the final punctuation mark), "distractor" (one plausible wrong extra word not in the answer), and optional "alts" (other fully correct word orders of exactly the same words).',
+    gen: 'A set of 5 items. Each has "context" (a short question someone asks), "answer" (a 6-10 word grammatical reply without final punctuation, testing word order such as embedded questions, tenses, conditionals, or comparatives), "end" (the final punctuation mark), "distractor" (one plausible wrong extra word not in the answer), optional "alts" (other fully correct word orders of exactly the same words), and "why" (one sentence naming the grammar point and why the distractor does not fit).',
     ok: it => Array.isArray(it.items) && it.items.length >= 3 && it.items.every(x => typeof x.context === 'string' && typeof x.answer === 'string' && x.answer.split(' ').length >= 3) },
   email: { section: 'Writing', name: 'Write an Email', blurb: '7 minutes to answer a real-life situation.', how: 'Read the situation and write an email that covers all three points. Aim for about 100–150 words with a clear greeting, purpose, and closing.', render: renderEmail, timed: 7 * 60,
     gen: 'An everyday situation requiring an email to a specific person (teacher, neighbor, manager, company, club leader) in "scenario" (2 sentences ending with "Write an email to ..."), and exactly 3 "points" the email must cover. Also a "model" email of 110-150 words using \\n for line breaks.',
@@ -490,9 +493,10 @@ const TABS = [
   { id: 'writing', label: 'Writing', icon: '✍️', groups: [
     { name: 'Test tasks', meta: '23 min', tasks: ['build', 'email', 'discuss'] }] },
   { id: 'speaking', label: 'Speaking', icon: '🎙️', groups: [
-    { name: 'Test tasks', meta: '8 min', tasks: ['repeat', 'interview'] }] }
+    { name: 'Test tasks', meta: '8 min', tasks: ['repeat', 'interview'] }] },
+  { id: 'words', label: 'Words', icon: '🗂️' }
 ];
-const SKILL_TABS = TABS.slice(1);
+const SKILL_TABS = TABS.filter(t => t.groups);
 const ALL_TASK_IDS = SKILL_TABS.flatMap(t => t.groups.flatMap(g => g.tasks));
 const tabOf = id => SKILL_TABS.find(t => t.groups.some(g => g.tasks.includes(id)));
 let currentTab = 'home', screen = 'tab';
@@ -517,6 +521,7 @@ const KO_HOW = {
   email: '상황을 읽고 세 가지 요점을 모두 포함하는 이메일을 쓰세요. 인사, 목적, 맺음말을 갖추어 약 100~150단어로 쓰세요.',
   discuss: '교수의 질문과 두 학생의 글을 읽으세요. 이유와 예시를 들어 자신의 의견을 쓰세요. 최소 100단어를 목표로 하세요.',
   repeat: '각 문장을 재생한 뒤 들은 그대로 따라 말하세요. 음성이 끝나면 마이크가 자동으로 켜집니다. 놓친 단어에는 밑줄이 표시됩니다.',
+  words: '틀린 단어는 더 자주, 아는 단어는 덜 자주 다시 나옵니다. 매일 복습할 단어를 먼저 공부하세요.',
   interview: '면접관이 네 가지 질문을 합니다. 각 질문이 끝나면 바로 약 45초 동안 답하세요. 말한 내용이 글로 바뀌어 나중에 다시 확인할 수 있습니다.'
 };
 
@@ -558,6 +563,7 @@ function renderTab(tabId) {
   screen = 'tab'; keepAwake(false);
   paintTabbar();
   if (currentTab === 'home') return renderHomeTab();
+  if (currentTab === 'words') return renderWordsTab();
   const tab = TABS.find(t => t.id === currentTab);
   setHeader(tab.label, false);
   stage.innerHTML = `<h1>${tab.label}</h1>` + tab.groups.map(g => `
@@ -602,6 +608,15 @@ function skillAverage(tab) {
   return { pct: tot ? Math.round(100 * pts / tot) : null, sets };
 }
 const isStandalone = () => (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || navigator.standalone;
+function dailyCardHtml() {
+  const st = streak(), due = dueWords(AWL_ALL()).length;
+  const live = DAILY && !DAILY.finished, doneToday = DAILY && DAILY.finished;
+  return `<button class="home-card primary" id="dailyBtn">
+      <span class="hc-kicker">Daily 15${st ? ` · 🔥 ${st}-day streak` : ''}</span>
+      <span class="hc-title">${live ? `Continue: step ${DAILY.i + 1} of ${DAILY.steps.length}` : doneToday ? 'Done for today ✓ · Start another mix' : 'Start today\'s 15-minute mix'}</span>
+      <span class="hc-sub">Words, reading, listening, writing, and speaking, picked from your weakest areas.</span></button>
+    ${due ? `<button class="home-card" id="wordsDue"><span class="hc-kicker">Words</span><span class="hc-title">${due} word${due > 1 ? 's' : ''} due for review</span><span class="hc-sub">Academic Word List</span></button>` : ''}`;
+}
 function renderHomeTab() {
   setHeader('TOEFL iBT', false);
   const last = store.get('toefl26-last', null);
@@ -611,7 +626,8 @@ function renderHomeTab() {
     ${IS_ANDROID && !isStandalone() && !store.get('toefl26-android-tip', 0) ? `<div class="notice info" id="androidTip" style="margin:0 0 18px; display:flex; gap:10px; align-items:flex-start;"><span><b>Install it as an app:</b> in Chrome, tap ⋮, then <b>Install app</b>. It then works offline.</span><button class="icon-btn" id="androidTipX" style="color:var(--pine); border-color:var(--pine); flex-shrink:0;" aria-label="Dismiss tip">✕</button></div>` : ''}
     <h1>TOEFL iBT practice</h1>
     <p class="sub">Every task type on the current test (the format in use since January 21, 2026), plus strategy drills.</p>
-    ${lastOk ? `<button class="home-card primary" id="contBtn">
+    ${dailyCardHtml()}
+    ${lastOk ? `<button class="home-card" id="contBtn">
       <span class="hc-kicker">Continue</span>
       <span class="hc-title">${esc(TASKS[last.id].name)}</span>
       <span class="hc-sub">${esc(tabOf(last.id).label)}, set ${(last.idx || 0) + 1}</span></button>` : ''}
@@ -629,6 +645,8 @@ function renderHomeTab() {
         </button>`; }).join('')}
     </section>`;
   if (lastOk) $('#contBtn').addEventListener('click', () => go(() => openTask(last.id, last.idx)));
+  $('#dailyBtn').addEventListener('click', () => go(() => (DAILY && !DAILY.finished) ? runDailyStep() : startDaily()));
+  const wb = $('#wordsDue'); if (wb) wb.addEventListener('click', () => go(() => renderTab('words')));
   $('#sugBtn').addEventListener('click', () => go(() => openTask(sug.id)));
   $('#progBtn').addEventListener('click', () => go(renderProgress));
   $$('[data-goto]').forEach(b => b.addEventListener('click', () => go(() => renderTab(b.dataset.goto))));
@@ -738,7 +756,7 @@ function renderSettings() {
   $('#welcomeBtn').addEventListener('click', () => showWelcome());
   $('#resetBtn').addEventListener('click', e => {
     if (!e.target.dataset.armed) { e.target.dataset.armed = '1'; e.target.textContent = 'Tap again to clear all scores'; return; }
-    STATS = {}; CURSOR = {}; HIST = {};
+    STATS = {}; CURSOR = {}; HIST = {}; SRS = {}; DAILY = null; saveSRS(); saveDaily(); store.set('toefl26-days', []);
     store.set('toefl26-stats', STATS); store.set('toefl26-cursor', CURSOR); store.set('toefl26-hist', HIST); store.set('toefl26-last', null);
     e.target.textContent = 'Progress cleared'; e.target.disabled = true;
   });
@@ -754,7 +772,7 @@ function showWelcome() {
       ? 'In Safari, tap the Share button, then <b>Add to Home Screen</b>.'
       : 'In Chrome, tap <b>⋮</b> in the top corner, then <b>Install app</b> (or <b>Add to Home screen</b>). The app then opens like any other app and works offline.';
   const slides = [
-    { title: 'Practice the whole TOEFL', body: `<p>Use the tabs at the bottom: <b>Reading</b>, <b>Listening</b>, <b>Writing</b>, and <b>Speaking</b>. Each has the real test tasks, and Reading and Listening also have strategy drills.</p><p><b>Home</b> shows where to continue and what to practice next.</p>
+    { title: 'Practice the whole TOEFL', body: `<p>Use the tabs at the bottom: <b>Reading</b>, <b>Listening</b>, <b>Writing</b>, and <b>Speaking</b>. Each has the real test tasks, and Reading and Listening also have strategy drills. <b>Words</b> has the Academic Word List with spaced review.</p><p>Short on time? Tap <b>Daily 15</b> on Home for a 15-minute mix of everything.</p>
       <label class="check"><input type="checkbox" id="wKo" ${SETTINGS.koInstr ? 'checked' : ''}><span>Show task instructions in Korean too<br><span lang="ko">과제 설명을 한국어로도 보기</span></span></label>` },
     { title: 'Install it on your phone', body: `<p>${installText}</p>` },
     { title: 'Save the audio for offline use', body: `<p>Listening tasks use recorded voices. Save them once on Wi-Fi (about 5 to 10 MB) so they play without internet.</p>
@@ -784,18 +802,19 @@ function showWelcome() {
 
 // ---------- Task shell ----------
 let current = { id: null, idx: 0 };
-function openTask(id, idx) {
+function openTask(id, idx, opts = {}) {
   enterSub();
   const list = pool(id);
   if (idx == null) idx = (CURSOR[id] || 0) % list.length;
   idx = Math.min(idx, list.length - 1);
-  current = { id, idx };
+  const daily = !!(opts.daily && DAILY);
+  current = { id, idx, daily };
   CURSOR[id] = idx; store.set('toefl26-cursor', CURSOR);
   store.set('toefl26-last', { id, idx });
   const t = TASKS[id], tab = tabOf(id);
   if (tab) { currentTab = tab.id; paintTabbar(); }
   if (/Listening|Speaking/.test(t.section)) keepAwake(true);
-  setHeader(t.name, true);
+  setHeader(daily ? dailyTitle() : t.name, true);
   const audioTask = t.section === 'Listening' || t.section === 'Speaking' || t.section === 'Listening strategies' || id === 'build';
   stage.innerHTML = `
     <div class="task-head">
@@ -809,7 +828,7 @@ function openTask(id, idx) {
     <h1>${t.name}</h1>
     <p class="task-how">${t.how}</p>
     ${SETTINGS.koInstr && KO_HOW[id] ? `<p class="task-how ko" lang="ko">${KO_HOW[id]}</p>` : ''}
-    ${t.noSets ? '' : `<div class="set-bar">
+    ${daily ? `<div class="set-bar"><span class="ttl"><span>Daily 15 · ${esc(DAILY.steps[DAILY.i].label)}</span>${esc(list[idx].title || '')}</span></div>` : t.noSets ? '' : `<div class="set-bar">
       <span class="ttl"><span>Set ${idx + 1} of ${list.length}</span>${esc(list[idx].title || '')}</span>
       <span class="row" style="gap:6px;">
         <button class="btn ghost small" data-act="prev" ${idx === 0 ? 'disabled' : ''} aria-label="Previous set">◀ Previous</button>
@@ -822,7 +841,7 @@ function openTask(id, idx) {
   $('[data-act=smaller]').addEventListener('click', () => stepText(-1));
   $('[data-act=bigger]').addEventListener('click', () => stepText(1));
   const vb = $('[data-act=voices]'); if (vb) vb.addEventListener('click', () => go(renderSettings));
-  if (!t.noSets) {
+  if (!t.noSets && !daily) {
     $('[data-act=next]').addEventListener('click', () => go(() => openTask(id, (idx + 1) % pool(id).length)));
     $('[data-act=prev]').addEventListener('click', () => { if (idx > 0) go(() => openTask(id, idx - 1)); });
     $('[data-act=gen]').addEventListener('click', () => generateSet(id));
@@ -909,6 +928,12 @@ function openSheet(title, html) {
 function closeSheet() { const sh = $('.sheet'); if (!sh) return false; sh.remove(); document.body.classList.remove('sheet-open'); return true; }
 function afterCheck(body, id, extraHtml = '') {
   const res = $('[data-result]', body);
+  if (current.daily && DAILY && DAILY.steps[DAILY.i] && DAILY.steps[DAILY.i].id === id) {
+    if (!DAILY.results[DAILY.i]) dailyResult(0, 0);
+    res.insertAdjacentHTML('beforeend', `${extraHtml}<div class="row" style="justify-content:center; margin-top:16px;"><button class="btn" data-nextset>${dailyNextLabel()}</button></div>`);
+    $('[data-nextset]', body).addEventListener('click', dailyNext);
+    return;
+  }
   res.insertAdjacentHTML('beforeend', `${extraHtml}<div class="row" style="justify-content:center; margin-top:16px;"><button class="btn" data-nextset>Next set ▶</button></div>`);
   $('[data-nextset]', body).addEventListener('click', () => go(() => openTask(id, (current.idx + 1) % pool(id).length)));
 }
@@ -955,7 +980,9 @@ function renderCTW(item, body, id) {
     });
     record(id, right, blanks.length);
     $('[data-result]', body).innerHTML = stampHtml(right, blanks.length);
-    afterCheck(body, id);
+    const full = esc(item.text).replace(/\[([A-Za-z']+)\]/g, (m, w) => `<b class="target">${w}</b>`);
+    afterCheck(body, id, `<div style="text-align:left; margin-top:18px;"><div class="lbl">The complete paragraph</div><div class="transcript" style="margin-top:0;">${full}</div>
+      <p class="hint">Tip: decide each word's part of speech first (noun, verb, article, preposition), then check that it fits the grammar around it.</p></div>`);
   });
 }
 function renderDaily(item, body, id) {
@@ -1435,7 +1462,7 @@ function renderRespond(item, body, id) {
   item.items.forEach((it, i) => mountPlayer($('#rp' + i, body), [{ s: i % 2, t: it.say }], { label: `▶ Play ${i + 1}` }));
   $('[data-check]', body).addEventListener('click', e => {
     e.target.disabled = true; let r = 0;
-    item.items.forEach((it, i) => { r += gradeMcq([{ q: '', options: it.options, answer: it.answer }], 'r' + i, body); $(`[data-ri="${i}"]`, body).classList.add('done'); });
+    item.items.forEach((it, i) => { r += gradeMcq([{ q: '', options: it.options, answer: it.answer, why: it.why }], 'r' + i, body); $(`[data-ri="${i}"]`, body).classList.add('done'); });
     record(id, r, item.items.length); $('[data-result]', body).innerHTML = stampHtml(r, item.items.length); afterCheck(body, id);
   });
 }
@@ -1477,7 +1504,8 @@ function renderBuild(item, body, id) {
       paint(i);
       const wrap = $(`[data-bi="${i}"]`, body);
       $('.answer-line', wrap).classList.add(ok ? 'ok' : 'bad');
-      if (!ok) { const c = $('.correct-ans', wrap); c.hidden = false; c.textContent = 'Correct: ' + st.it.answer + (st.it.end || '.'); }
+      const c = $('.correct-ans', wrap); c.hidden = false;
+      c.innerHTML = `${ok ? '' : `Correct: <b>${esc(st.it.answer + (st.it.end || '.'))}</b>`}${st.it.why ? `<div class="why">${esc(st.it.why)}</div>` : ''}`;
     });
     record(id, r, states.length); $('[data-result]', body).innerHTML = stampHtml(r, states.length); afterCheck(body, id);
   });
@@ -1704,6 +1732,267 @@ Give 2-3 strengths, 2-3 improvements, and up to 6 corrections.${koreanNote()}`;
     });
   };
   intro();
+}
+
+// ---------- Words tab: AWL flashcards with spaced review ----------
+// Leitner boxes: a correct answer moves a word up one box, a miss sends it
+// back to box 1. Each box waits longer before the word is due again.
+const BOX_DAYS = { 1: 1, 2: 2, 3: 4, 4: 7, 5: 14 };
+let SRS = store.get('toefl26-awl-srs', {});
+const saveSRS = () => store.set('toefl26-awl-srs', SRS);
+const dayStr = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const addDays = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return dayStr(d); };
+const AWL_ALL = () => (DATA.awl || []).flatMap(s => s.words.map(w => Object.assign({ sub: s.n }, w)));
+const wkey = w => w.t.toLowerCase();
+const boxOf = w => (SRS[wkey(w)] || {}).box || 0; // 0 = never studied
+const isDue = w => { const r = SRS[wkey(w)]; return !r || r.due <= dayStr(); };
+function srsAnswer(w, ok) {
+  const r = SRS[wkey(w)] || { box: 0 };
+  r.box = ok ? Math.min(5, Math.max(1, r.box + 1)) : 1;
+  r.due = addDays(BOX_DAYS[r.box]); SRS[wkey(w)] = r; saveSRS();
+}
+// Due today: words studied before whose review date has come (new words aren't "due").
+const dueWords = list => list.filter(w => SRS[wkey(w)] && isDue(w));
+
+const WORD_MODES = [
+  { id: 'def', label: 'Meaning → type the word' },
+  { id: 'cloze', label: 'Sentence → type the missing word' },
+  { id: 'listen', label: '🔊 Hear it → type the word' },
+  { id: 'mean', label: 'Word → recall the meaning' }
+];
+function renderWordsTab() {
+  setHeader('Words', false);
+  const all = AWL_ALL();
+  const due = dueWords(all);
+  const known = all.filter(w => boxOf(w) >= 5).length;
+  const mode = SETTINGS.wordMode || 'def';
+  stage.innerHTML = `
+    <h1>Academic Word List</h1>
+    <p class="sub">${all.length} words in 10 sublists, with Korean meanings and example sentences. Words you miss come back sooner; words you know come back less often.</p>
+    <button class="home-card primary" id="dueBtn" ${due.length ? '' : 'disabled'}>
+      <span class="hc-kicker">Review</span>
+      <span class="hc-title">${due.length ? `${due.length} word${due.length > 1 ? 's' : ''} due today` : 'Nothing due today'}</span>
+      <span class="hc-sub">${due.length ? 'Spaced review across all sublists' : 'Study a sublist below to add words to your review.'} · ${known} known</span></button>
+    <div><span class="lbl">How to practice</span>
+      <div class="seg" id="modeSeg">${WORD_MODES.map(m => `<button data-mode="${m.id}" class="${mode === m.id ? 'active' : ''}">${m.label}</button>`).join('')}</div></div>
+    <section class="sec" style="margin-top:14px;">
+      <div class="sec-head"><h2>Sublists</h2><span class="sec-meta">known / total</span></div>
+      ${(DATA.awl || []).map(s => {
+        const k = s.words.filter(w => boxOf(w) >= 5).length, d = dueWords(s.words).length, seen = s.words.filter(w => boxOf(w) > 0).length;
+        return `<div class="deck">
+          <div class="deck-top"><b>Sublist ${s.n}</b><span class="badge ${k ? 'on' : ''}">${k}/${s.words.length} known</span></div>
+          <div class="deck-sub">${esc(s.words.slice(0, 4).map(w => w.t).join(', '))}…${seen ? ` · ${seen} studied${d ? `, ${d} due` : ''}` : ''}</div>
+          <div class="sk-bar" aria-hidden="true"><i style="width:${Math.round(100 * k / s.words.length)}%"></i></div>
+          <div class="row" style="margin-top:10px; gap:8px;">
+            <button class="btn small" data-study="${s.n}">▶ Study</button>
+            <button class="btn ghost small" data-preview="${s.n}">👀 Preview</button>
+          </div></div>`;
+      }).join('')}
+    </section>`;
+  $('#modeSeg').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; SETTINGS.wordMode = b.dataset.mode; saveSettings(); $$('#modeSeg button').forEach(x => x.classList.toggle('active', x === b)); });
+  $('#dueBtn').addEventListener('click', () => { if (due.length) go(() => runWords(shuffle(due).slice(0, 30), { title: 'Review due words' })); });
+  $$('[data-study]').forEach(b => b.addEventListener('click', () => {
+    const n = +b.dataset.study, s = { words: AWL_ALL().filter(w => w.sub === n) };
+    // Due words first, then new ones, then the rest: about 15 cards per round.
+    const d = shuffle(dueWords(s.words)), fresh = s.words.filter(w => !boxOf(w)), rest = shuffle(s.words.filter(w => boxOf(w) && !isDue(w)));
+    const cards = [...d, ...fresh, ...rest].slice(0, 15);
+    go(() => runWords(cards, { title: `Sublist ${n}` }));
+  }));
+  $$('[data-preview]').forEach(b => b.addEventListener('click', () => go(() => previewWords(DATA.awl.find(x => x.n === +b.dataset.preview)))));
+}
+
+function previewWords(sub) {
+  enterSub(); setHeader(`Sublist ${sub.n} preview`, true);
+  let i = 0;
+  const paint = () => {
+    const w = sub.words[i];
+    stage.innerHTML = `<div class="wcard">
+      <div class="w-eyebrow">Preview ${i + 1} of ${sub.words.length}${w.p ? ` · ${esc(w.p)}` : ''}</div>
+      <div class="w-term">${esc(w.t)} <button class="btn ghost small" data-say aria-label="Hear the word">🔊</button></div>
+      <div class="w-ko">${esc(w.k)}</div>
+      <p class="w-def">${esc(w.d)}</p>
+      ${w.x.map(x => `<p class="w-ex">${fillEx(x, w.t)}</p>`).join('')}
+      <div class="row" style="justify-content:space-between; margin-top:20px;">
+        <button class="btn ghost" id="pv" ${i ? '' : 'disabled'}>◀ Previous</button>
+        <button class="btn" id="nx">${i + 1 < sub.words.length ? 'Next ▶' : 'Done'}</button></div></div>`;
+    $('[data-say]').addEventListener('click', () => speak([{ s: 0, t: w.t }]));
+    $('#pv').addEventListener('click', () => { i--; paint(); });
+    $('#nx').addEventListener('click', () => { if (i + 1 < sub.words.length) { i++; paint(); } else goBack(); });
+  };
+  paint();
+}
+const fillEx = (x, t) => esc(x).replace(/_+/, `<b>${esc(t)}</b>`);
+const blankEx = (x, t) => esc(x).replace(/_+/, '_'.repeat(Math.max(3, t.replace(/\s+/g, '').length)));
+
+// Typo-tolerant grading: one slip (extra, missing, wrong or swapped letter)
+// on a word of 6+ letters counts as correct, flagged "Close".
+function editDist(a, b) {
+  const m = a.length, n = b.length, d = Array.from({ length: m + 1 }, (_, i) => [i, ...Array(n).fill(0)]);
+  for (let j = 0; j <= n; j++) d[0][j] = j;
+  for (let i = 1; i <= m; i++) for (let j = 1; j <= n; j++) {
+    d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) d[i][j] = Math.min(d[i][j], d[i - 2][j - 2] + 1);
+  }
+  return d[m][n];
+}
+function gradeWord(typed, term) {
+  const a = typed.trim().toLowerCase().replace(/[.,!?;:'"]+$/, ''), b = term.toLowerCase();
+  if (a === b) return { ok: true, close: false };
+  if (b.length >= 6 && editDist(a, b) === 1) return { ok: true, close: true };
+  return { ok: false, close: false };
+}
+
+// Runs a round of word cards. opts: { title, mode, onDone(right, total) }
+function runWords(cards, opts = {}) {
+  if (!opts.daily) enterSub();
+  const mode = opts.mode || SETTINGS.wordMode || 'def';
+  let i = 0, right = 0; const missed = [];
+  if (!cards.length) { stage.innerHTML = '<p class="sub">No words to study right now.</p>'; return; }
+  keepAwake(mode === 'listen');
+  const card = () => {
+    const w = cards[i];
+    const m = mode === 'cloze' && !w.x.length ? 'def' : mode;
+    setHeader(opts.daily ? dailyTitle() : `${opts.title || 'Words'} · ${i + 1}/${cards.length}`, true);
+    const ex = w.x.length ? w.x[Math.floor(Math.random() * w.x.length)] : '';
+    const prompt = m === 'def' ? `<p class="w-prompt">${esc(w.d)}</p><div class="w-ko">${esc(w.k)}</div>`
+      : m === 'cloze' ? `<p class="w-prompt">${blankEx(ex, w.t)}</p>`
+      : m === 'listen' ? `<div class="row" style="justify-content:center; margin:12px 0;"><button class="btn" data-say>🔊 Play the word</button></div>`
+      : `<div class="w-term">${esc(w.t)} <button class="btn ghost small" data-say aria-label="Hear the word">🔊</button></div>`;
+    stage.innerHTML = `<div class="wcard">
+      <div class="pbar static" aria-hidden="true"><i style="width:${Math.round(100 * i / cards.length)}%"></i></div>
+      <div class="w-eyebrow">${{ def: 'Meaning', cloze: 'Complete the sentence', listen: 'Listen and spell', mean: 'What does it mean?' }[m]}${w.p ? ` · ${esc(w.p)}` : ''} · Sublist ${w.sub || ''}</div>
+      ${prompt}
+      ${m === 'mean'
+        ? `<div class="row" style="justify-content:center; margin-top:16px;"><button class="btn" id="reveal">Show the meaning</button></div>`
+        : `<div class="w-answer"><input id="ans" class="field-in" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Type the word…" aria-label="Your answer"><button class="btn" id="sub">Check</button></div>`}
+      <div id="fb"></div></div>`;
+    const sayBtn = $('[data-say]'); if (sayBtn) sayBtn.addEventListener('click', () => speak([{ s: 0, t: w.t }]));
+    if (m === 'listen') speak([{ s: 0, t: w.t }]);
+    const after = (ok, close, given) => {
+      if (ok) right++; else missed.push({ w, given });
+      srsAnswer(w, ok); buzz(ok ? 20 : [25, 70, 25]);
+      const r = SRS[wkey(w)];
+      $('#fb').innerHTML = `<div class="w-feedback">
+        ${m !== 'mean' ? `<div class="stamp ${ok ? (close ? 'mid' : 'good') : 'low'}" style="font-size:17px;">${ok ? (close ? 'Close!' : 'Correct') : 'Not quite'}</div>` : ''}
+        <div class="w-term" style="margin-top:12px;">${esc(w.t)} <button class="btn ghost small" data-say2 aria-label="Hear the word">🔊</button></div>
+        ${close ? `<p class="hint">One letter off. It's spelled <b>${esc(w.t)}</b>.</p>` : ''}
+        ${!ok && given ? `<p class="hint">You wrote: ${esc(given)}</p>` : ''}
+        <div class="w-ko">${esc(w.k)}</div><p class="w-def">${esc(w.d)}</p>
+        ${ex || w.x[0] ? `<p class="w-ex">${fillEx(ex || w.x[0], w.t)}</p>` : ''}
+        <p class="hint">${ok ? `Level ${r.box} of 5 · next review in ${BOX_DAYS[r.box]} day${BOX_DAYS[r.box] > 1 ? 's' : ''}` : 'Back to level 1 · you\'ll see it again tomorrow'}</p>
+        <div class="row" style="justify-content:center; margin-top:10px;"><button class="btn" id="nx">${i + 1 < cards.length ? 'Next word ▶' : 'See results'}</button></div></div>`;
+      $('[data-say2]').addEventListener('click', () => speak([{ s: 0, t: w.t }]));
+      const nx = $('#nx'); nx.addEventListener('click', () => { i++; i < cards.length ? card() : done(); }); nx.focus();
+    };
+    if (m === 'mean') {
+      $('#reveal').addEventListener('click', () => {
+        $('#reveal').parentElement.remove();
+        $('#fb').innerHTML = `<div class="w-feedback"><div class="w-ko">${esc(w.k)}</div><p class="w-def">${esc(w.d)}</p>${w.x[0] ? `<p class="w-ex">${fillEx(w.x[0], w.t)}</p>` : ''}
+          <p class="hint">Did you know it?</p><div class="row" style="justify-content:center;"><button class="btn" data-g="1">I knew it</button><button class="btn ghost" data-g="0">I didn't</button></div></div>`;
+        $$('[data-g]').forEach(b => b.addEventListener('click', () => after(b.dataset.g === '1', false, '')));
+      });
+    } else {
+      const ans = $('#ans'), sub = $('#sub');
+      const check = () => { if (!ans.value.trim()) { ans.focus(); return; } ans.disabled = sub.disabled = true; const g = gradeWord(ans.value, w.t); after(g.ok, g.close, ans.value.trim()); };
+      sub.addEventListener('click', check);
+      ans.addEventListener('keydown', e => { if (e.key === 'Enter') check(); });
+      if (m !== 'listen') ans.focus();
+    }
+  };
+  const done = () => {
+    keepAwake(false);
+    if (opts.onDone) return opts.onDone(right, cards.length);
+    record('words', right, cards.length);
+    setHeader(opts.title || 'Words', true);
+    stage.innerHTML = `<div class="result">${stampHtml(right, cards.length)}</div>
+      ${missed.length ? `<h3>To review</h3>${missed.map(({ w, given }) => `<div class="corr"><b>${esc(w.t)}</b> (${esc(w.k)}): ${esc(w.d)}${given ? `<div class="w">You wrote: ${esc(given)}</div>` : ''}</div>`).join('')}` : '<p class="sub" style="text-align:center;">Every word correct.</p>'}
+      <div class="row" style="justify-content:center; margin-top:18px;">
+        ${missed.length ? '<button class="btn ghost" id="retry">Retry missed words</button>' : ''}
+        <button class="btn" id="back">Back to Words</button></div>`;
+    const rt = $('#retry'); if (rt) rt.addEventListener('click', () => runWords(shuffle(missed.map(m => m.w)), Object.assign({}, opts, { title: 'Missed words' })));
+    $('#back').addEventListener('click', goBack);
+  };
+  card();
+}
+
+// ---------- Daily 15: a short mixed session ----------
+// Five steps in about 15 minutes: word review, then one reading, listening,
+// writing, and speaking task. Mixing skills in one session builds stronger
+// recall than repeating one task type. Picks your weakest or untried tasks.
+const DAILY_SLOTS = [
+  { label: 'Words', kind: 'words' },
+  { label: 'Reading', pick: ['ctw', 'daily', 'vic', 'trans'] },
+  { label: 'Listening', pick: ['respond', 'announce', 'talk', 'convo'] },
+  { label: 'Writing', pick: ['build'] },
+  { label: 'Speaking', pick: ['repeat'] }
+];
+let DAILY = store.get('toefl26-daily', null);
+if (DAILY && DAILY.date !== dayStr()) DAILY = null; // yesterday's unfinished session expires
+const saveDaily = () => store.set('toefl26-daily', DAILY);
+const dailyTitle = () => `Daily 15 · ${DAILY.i + 1} of ${DAILY.steps.length}`;
+function pickTask(ids) {
+  const score = id => { const s = STATS[id]; if (!s || !s.sets) return -1; return s.tot ? s.pts / s.tot : 0.7; };
+  return ids.map(id => ({ id, v: score(id) + Math.random() * 0.1 })).sort((a, b) => a.v - b.v)[0].id;
+}
+function startDaily() {
+  const steps = DAILY_SLOTS.map(sl => {
+    if (sl.kind === 'words') return { label: sl.label, kind: 'words' };
+    const id = pickTask(sl.pick), n = pool(id).length;
+    return { label: sl.label, kind: 'task', id, idx: ((CURSOR[id] || 0) + (STATS[id] && STATS[id].sets ? 1 : 0)) % n };
+  });
+  DAILY = { date: dayStr(), steps, i: 0, results: [] }; saveDaily();
+  runDailyStep();
+}
+function dailyWordCards() {
+  const all = AWL_ALL(), due = shuffle(dueWords(all));
+  const fresh = all.filter(w => !boxOf(w)); // next unseen words, in sublist order
+  return [...due, ...fresh].slice(0, 10);
+}
+function runDailyStep() {
+  enterSub();
+  const st = DAILY.steps[DAILY.i];
+  if (!st) return finishDaily();
+  if (st.kind === 'words') {
+    setHeader(dailyTitle(), true);
+    runWords(dailyWordCards(), { daily: true, mode: 'def', onDone: (r, t) => { dailyResult(r, t); dailyContinueScreen(); } });
+  } else openTask(st.id, st.idx, { daily: true });
+}
+function dailyResult(pts, tot) {
+  if (!DAILY) return;
+  DAILY.results[DAILY.i] = { pts, tot }; saveDaily();
+}
+function dailyNext() { DAILY.i++; saveDaily(); go(() => runDailyStep()); }
+function dailyNextLabel() {
+  const nx = DAILY.steps[DAILY.i + 1];
+  return nx ? `Next: ${nx.label} ▶` : 'Finish Daily 15 ▶';
+}
+function dailyContinueScreen() {
+  const r = DAILY.results[DAILY.i];
+  stage.innerHTML = `<div class="result">${r ? stampHtml(r.pts, r.tot) : ''}<p class="sub">Step ${DAILY.i + 1} of ${DAILY.steps.length} done.</p>
+    <button class="btn" id="dn">${dailyNextLabel()}</button></div>`;
+  $('#dn').addEventListener('click', dailyNext);
+}
+function markStudyDay() {
+  const days = store.get('toefl26-days', []);
+  const t = dayStr(); if (!days.includes(t)) { days.push(t); store.set('toefl26-days', days.slice(-400)); }
+}
+function streak() {
+  const days = new Set(store.get('toefl26-days', []));
+  let n = 0; const d = new Date();
+  if (!days.has(dayStr(d))) d.setDate(d.getDate() - 1); // today not done yet: count up to yesterday
+  while (days.has(dayStr(d))) { n++; d.setDate(d.getDate() - 1); }
+  return n;
+}
+function finishDaily() {
+  markStudyDay();
+  const res = DAILY.steps.map((s, k) => ({ s, r: DAILY.results[k] }));
+  DAILY.finished = true; saveDaily();
+  setHeader('Daily 15 done', true);
+  stage.innerHTML = `<h1>Daily 15 complete 🎉</h1>
+    <p class="sub">${streak()}-day streak. Come back tomorrow for a new mix; your missed words will be waiting.</p>
+    <div class="score-list">${res.map(({ s, r }) => `<div><span>${s.label}${s.id ? `: ${esc(TASKS[s.id].name)}` : ''}</span><span>${r ? `${Math.round(100 * r.pts / (r.tot || 1))}%` : '—'}</span></div>`).join('')}</div>
+    <div class="row" style="justify-content:center; margin-top:20px;"><button class="btn" id="home">Back to Home</button></div>`;
+  $('#home').addEventListener('click', () => go(() => renderTab('home')));
 }
 
 window.addEventListener('popstate', () => {

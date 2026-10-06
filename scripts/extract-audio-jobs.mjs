@@ -12,7 +12,8 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const ctx = {}; vm.createContext(ctx);
 vm.runInContext(
   fs.readFileSync(path.join(root, 'audio-key.js'), 'utf8') + '\n' +
-  fs.readFileSync(path.join(root, 'data', 'content.js'), 'utf8') +
+  fs.readFileSync(path.join(root, 'data', 'content.js'), 'utf8') + '\n' +
+  fs.readFileSync(path.join(root, 'data', 'awl.js'), 'utf8') +
   '\n;globalThis.__DATA = DATA; globalThis.__key = audioKey;', ctx);
 const DATA = ctx.__DATA, key = ctx.__key;
 
@@ -41,6 +42,10 @@ for (const it of DATA.repeat || []) it.sentences.forEach(t => add(it, 0, t));
 for (const it of DATA.interview || []) it.questions.forEach(t => add(it, 1, t));
 for (const it of DATA.build || []) it.items.forEach(x => add(it, 0, x.context));
 
+// Word pronunciations for the Words tab (one clear voice for all words)
+for (const sub of DATA.awl || []) for (const w of sub.words) {
+  const k = key(0, w.t); if (!jobs.has(k)) jobs.set(k, { key: k, text: w.t, voice: 'af_heart' });
+}
 const all = [...jobs.values()];
 const audioDir = path.join(root, 'audio');
 fs.mkdirSync(audioDir, { recursive: true });

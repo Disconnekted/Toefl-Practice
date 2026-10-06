@@ -1,9 +1,9 @@
 // Offline support. App files: network first (so updates arrive when online),
 // cached copy when offline. Audio clips and fonts: cached copy first.
-const SHELL_CACHE = 'toefl-shell-v1';
+const SHELL_CACHE = 'toefl-shell-v2';
 const AUDIO_CACHE = 'toefl-audio';
 const FONT_CACHE = 'toefl-fonts';
-const SHELL = ['./', 'index.html', 'app.js', 'audio-key.js', 'data/content.js', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'audio/index.json'];
+const SHELL = ['./', 'index.html', 'app.js', 'audio-key.js', 'data/content.js', 'data/awl.js', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'audio/index.json'];
 
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(SHELL_CACHE).then(cache =>

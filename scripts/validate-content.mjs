@@ -72,5 +72,16 @@ if (problems.length) {
   console.error('\nFix these, commit again, and GitHub will retry.\n');
   process.exit(1);
 }
+// Academic Word List (data/awl.js)
+try {
+  const ctx = { DATA: {} }; vm.createContext(ctx);
+  vm.runInContext(fs.readFileSync(path.join(root, 'data', 'awl.js'), 'utf8'), ctx, { filename: 'data/awl.js' });
+  const awl = ctx.DATA.awl;
+  if (!Array.isArray(awl) || !awl.length) throw new Error('DATA.awl is missing or empty');
+  awl.forEach(s => s.words.forEach((w, i) => { if (!w.t || !w.d) throw new Error(`Sublist ${s.n}, word ${i + 1}: needs "t" (word) and "d" (definition)`); }));
+  console.log(`✓ data/awl.js looks good: ${awl.reduce((n, s) => n + s.words.length, 0)} words in ${awl.length} sublists.`);
+} catch (e) {
+  console.error('\n✗ data/awl.js has a problem: ' + e.message + '\n'); process.exit(1);
+}
 const count = Object.keys(NEED).reduce((n, id) => n + DATA[id].length, 0);
 console.log(`✓ data/content.js looks good: ${count} practice sets across ${Object.keys(NEED).length} task types.`);

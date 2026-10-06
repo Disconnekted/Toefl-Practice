@@ -7,21 +7,21 @@ ctw: [
 daily: [
   { title: "Pool schedule notice", kind: "Notice", text: "CAMPUS RECREATION CENTER\nPool Schedule Change\n\nStarting Monday, March 9, the indoor pool will close at 7:00 p.m. instead of 9:00 p.m. on weekdays while the heating system is replaced. Weekend hours (10:00 a.m. to 6:00 p.m.) are not affected.\n\nLap swimmers who usually come in the evening may use the pool at the Westfield Community Center at no charge by showing a valid student ID. The work is expected to finish by April 3. We apologize for the inconvenience.",
     questions: [
-      { q: "Why is the pool schedule changing?", options: ["A heating system is being replaced", "More swimming classes are being added", "There are not enough lifeguards", "The pool is being cleaned"], answer: 0 },
-      { q: "What can students who usually swim in the evening do?", options: ["Get a refund for their membership", "Swim at another center for free", "Reserve a weekend time slot", "Swim until 9:00 p.m. on Saturdays"], answer: 1 },
-      { q: "What is true about the weekend hours?", options: ["They will be extended", "They will start later", "They will stay the same", "They will end on April 3"], answer: 2 }
+      { q: "Why is the pool schedule changing?", options: ["A heating system is being replaced", "More swimming classes are being added", "There are not enough lifeguards", "The pool is being cleaned"], answer: 0, why: "The notice says hours change \"while the heating system is replaced.\"" },
+      { q: "What can students who usually swim in the evening do?", options: ["Get a refund for their membership", "Swim at another center for free", "Reserve a weekend time slot", "Swim until 9:00 p.m. on Saturdays"], answer: 1, why: "Evening swimmers can use the Westfield pool \"at no charge,\" which means free." },
+      { q: "What is true about the weekend hours?", options: ["They will be extended", "They will start later", "They will stay the same", "They will end on April 3"], answer: 2, why: "\"Weekend hours \u2026 are not affected,\" so they stay the same." }
     ] },
   { title: "Room inspection email", kind: "Email", text: "From: Dana Okafor, Housing Office\nTo: Maple Hall residents\nSubject: Room inspections next week\n\nHi everyone,\n\nAs part of our regular safety checks, staff will inspect all rooms in Maple Hall on Wednesday, October 14, between 10 a.m. and 2 p.m. You do not need to be present, but please make sure the area around your window and heater is clear and that no extension cords are plugged into each other. Candles and hot plates are not permitted and will be removed if found.\n\nIf you have a maintenance issue you would like us to look at, reply to this email by Monday and we'll check it during the visit.\n\nThanks,\nDana",
     questions: [
-      { q: "What is the main purpose of the email?", options: ["To announce new rules for guests", "To inform residents about an upcoming safety check", "To ask residents to move to another building", "To explain how to pay for repairs"], answer: 1 },
-      { q: "What are residents asked to do?", options: ["Be in their rooms during the inspection", "Buy new extension cords", "Keep the area near the window and heater clear", "Remove all electrical devices"], answer: 2 },
-      { q: "Why might a resident reply to the email?", options: ["To report something that needs repair", "To change the inspection date", "To request permission to use candles", "To volunteer to help with inspections"], answer: 0 }
+      { q: "What is the main purpose of the email?", options: ["To announce new rules for guests", "To inform residents about an upcoming safety check", "To ask residents to move to another building", "To explain how to pay for repairs"], answer: 1, why: "Staff will inspect all rooms \"as part of our regular safety checks.\" The other options are never mentioned." },
+      { q: "What are residents asked to do?", options: ["Be in their rooms during the inspection", "Buy new extension cords", "Keep the area near the window and heater clear", "Remove all electrical devices"], answer: 2, why: "Residents should keep \"the area around your window and heater\" clear. They don't need to be present." },
+      { q: "Why might a resident reply to the email?", options: ["To report something that needs repair", "To change the inspection date", "To request permission to use candles", "To volunteer to help with inspections"], answer: 0, why: "Residents can reply \"if you have a maintenance issue,\" meaning something that needs repair." }
     ] },
   { title: "Textbooks for sale", kind: "Online post", text: "USED TEXTBOOKS FOR SALE\n\nIntro to Psychology (9th edition), $30\nCalculus: Early Transcendentals, $45, some highlighting in chapters 1 to 3\n\nBoth books are in good condition. I'm graduating in May, so I'd like to sell them before then. I can meet anywhere on campus on Tuesdays or Thursdays after 3 p.m. Text Jordan at 555-0142. Prices are firm.",
     questions: [
-      { q: "What is mentioned about the calculus book?", options: ["It is the newest edition", "It has some marks in the early chapters", "It is cheaper than the psychology book", "It is missing several pages"], answer: 1 },
-      { q: "Why is Jordan selling the books?", options: ["Jordan is changing majors", "Jordan needs money for a trip", "Jordan will graduate soon", "Jordan bought newer editions"], answer: 2 },
-      { q: "What does \"Prices are firm\" most likely mean?", options: ["The seller will not lower the prices", "The books are in strong condition", "The prices include delivery", "Payment must be made in cash"], answer: 0 }
+      { q: "What is mentioned about the calculus book?", options: ["It is the newest edition", "It has some marks in the early chapters", "It is cheaper than the psychology book", "It is missing several pages"], answer: 1, why: "It has \"some highlighting in chapters 1 to 3.\" Highlighting is a kind of mark." },
+      { q: "Why is Jordan selling the books?", options: ["Jordan is changing majors", "Jordan needs money for a trip", "Jordan will graduate soon", "Jordan bought newer editions"], answer: 2, why: "Jordan is \"graduating in May\" and wants to sell them before then." },
+      { q: "What does \"Prices are firm\" most likely mean?", options: ["The seller will not lower the prices", "The books are in strong condition", "The prices include delivery", "Payment must be made in cash"], answer: 0, why: "\"Firm\" here means fixed and not open to bargaining. It doesn't describe the books' condition." }
     ] }
 ],
 academic: [
@@ -31,11 +31,11 @@ academic: [
     "The consequences are significant. Higher temperatures increase demand for air conditioning, which in turn raises energy consumption and, in many regions, air pollution from power plants. During heat waves, urban residents, particularly the elderly, face greater health risks than people living in rural areas.",
     "Cities have begun experimenting with solutions. Some have painted roofs white or light gray so that they reflect rather than absorb sunlight. Others have expanded parks and planted trees along streets. Green roofs, covered with soil and plants, provide both insulation and cooling. Although no single strategy eliminates the heat island effect, studies suggest that combining several of them can lower peak urban temperatures noticeably."],
     questions: [
-      { q: "The word \"intensify\" in paragraph 2 is closest in meaning to", options: ["strengthen", "reduce", "explain", "delay"], answer: 0 },
-      { q: "According to paragraph 1, why is the temperature difference usually greatest at night?", options: ["Rural areas receive more sunlight at night", "City surfaces release heat they stored during the day", "Factories operate mainly at night", "Wind speeds increase in rural areas after sunset"], answer: 1 },
-      { q: "Which of the following is NOT mentioned as a cause of higher city temperatures?", options: ["Tall buildings that block wind", "A lack of plants", "Heat produced by machines", "Moisture from nearby rivers"], answer: 3 },
-      { q: "Why does the author mention the elderly in paragraph 3?", options: ["To give an example of a group especially at risk from heat", "To explain why cities use more energy", "To argue that older people should move to rural areas", "To show who designs city buildings"], answer: 0 },
-      { q: "What can be inferred about the solutions in paragraph 4?", options: ["Painting roofs is the most effective solution", "They are too expensive for most cities", "They work best when used together", "They have completely solved the problem in some cities"], answer: 2 }
+      { q: "The word \"intensify\" in paragraph 2 is closest in meaning to", options: ["strengthen", "reduce", "explain", "delay"], answer: 0, why: "To intensify is to make stronger. Paragraph 2 lists features that make the effect worse." },
+      { q: "According to paragraph 1, why is the temperature difference usually greatest at night?", options: ["Rural areas receive more sunlight at night", "City surfaces release heat they stored during the day", "Factories operate mainly at night", "Wind speeds increase in rural areas after sunset"], answer: 1, why: "Surfaces absorb solar energy by day and \"slowly release the stored heat\" after sunset." },
+      { q: "Which of the following is NOT mentioned as a cause of higher city temperatures?", options: ["Tall buildings that block wind", "A lack of plants", "Heat produced by machines", "Moisture from nearby rivers"], answer: 3, why: "Paragraph 2 mentions buildings, missing plants, and waste heat from machines. Rivers are never mentioned." },
+      { q: "Why does the author mention the elderly in paragraph 3?", options: ["To give an example of a group especially at risk from heat", "To explain why cities use more energy", "To argue that older people should move to rural areas", "To show who designs city buildings"], answer: 0, why: "They are an example of residents who \"face greater health risks\" in heat waves." },
+      { q: "What can be inferred about the solutions in paragraph 4?", options: ["Painting roofs is the most effective solution", "They are too expensive for most cities", "They work best when used together", "They have completely solved the problem in some cities"], answer: 2, why: "The last sentence says combining several strategies helps most. No single one is called the best." }
     ] },
   { title: "The invention of standard time", paras: [
     "Before the late nineteenth century, most towns set their clocks by the sun. Noon was the moment the sun reached its highest point in the sky, so a town just a few miles to the west would keep a slightly different time from its neighbor. For centuries this caused few problems, because travel between towns was slow.",
@@ -43,27 +43,27 @@ academic: [
     "In 1883, railroads in the United States and Canada adopted a system of standard time zones, each covering a wide band of territory in which all clocks showed the same hour. The following year, delegates at the International Meridian Conference chose Greenwich, England, as the starting point for measuring longitude, which provided a reference for time zones around the world.",
     "Acceptance was not immediate. Some communities objected that the railroads had no right to change the time, and certain cities continued to use local time for years. Over the following decades, however, the convenience of a shared standard became difficult to ignore, and governments gradually made time zones official by law."],
     questions: [
-      { q: "The word \"adopted\" in paragraph 3 is closest in meaning to", options: ["rejected", "began using", "designed", "argued about"], answer: 1 },
-      { q: "According to paragraph 1, why did local time cause few problems for centuries?", options: ["Most people did not own clocks", "Towns agreed to use the same noon", "Travel between towns was slow", "The sun was easy to observe everywhere"], answer: 2 },
-      { q: "According to paragraph 2, why were train timetables dangerous?", options: ["Operators needed to know exactly where trains were", "Passengers often missed their trains", "Stations had too few clocks", "Trains moved too slowly to follow a schedule"], answer: 0 },
-      { q: "What was the significance of the 1884 conference?", options: ["It created the first railroad", "It established a worldwide reference point for time zones", "It required all cities to follow railroad time", "It ended the use of solar time in England"], answer: 1 },
-      { q: "What can be inferred about the communities described in paragraph 4?", options: ["They had no railroads", "They saw standard time as something imposed on them by companies", "They wanted even more time zones", "They were located near Greenwich"], answer: 1 }
+      { q: "The word \"adopted\" in paragraph 3 is closest in meaning to", options: ["rejected", "began using", "designed", "argued about"], answer: 1, why: "To adopt a system is to start using it. The railroads began using time zones." },
+      { q: "According to paragraph 1, why did local time cause few problems for centuries?", options: ["Most people did not own clocks", "Towns agreed to use the same noon", "Travel between towns was slow", "The sun was easy to observe everywhere"], answer: 2, why: "It caused few problems \"because travel between towns was slow.\"" },
+      { q: "According to paragraph 2, why were train timetables dangerous?", options: ["Operators needed to know exactly where trains were", "Passengers often missed their trains", "Stations had too few clocks", "Trains moved too slowly to follow a schedule"], answer: 0, why: "Operators \"needed to know exactly where trains on the same track would be.\"" },
+      { q: "What was the significance of the 1884 conference?", options: ["It created the first railroad", "It established a worldwide reference point for time zones", "It required all cities to follow railroad time", "It ended the use of solar time in England"], answer: 1, why: "Choosing Greenwich gave a reference point \"for time zones around the world.\"" },
+      { q: "What can be inferred about the communities described in paragraph 4?", options: ["They had no railroads", "They saw standard time as something imposed on them by companies", "They wanted even more time zones", "They were located near Greenwich"], answer: 1, why: "They \"objected that the railroads had no right to change the time,\" so they saw it as forced on them." }
     ] }
 ],
 respond: [
   { title: "Campus questions, set A", items: [
-    { say: "Do you know if the library is open on Sunday?", options: ["I think it opens at noon.", "I returned the book yesterday.", "Yes, it's a big library.", "Sunday was really busy for me."], answer: 0 },
-    { say: "Would you mind if I borrowed your notes from Tuesday's lecture?", options: ["No, I didn't take the bus.", "Sure, I'll email them to you tonight.", "The lecture was on Tuesday.", "I mind it very much, thanks."], answer: 1 },
-    { say: "Why didn't you come to the study group last night?", options: ["We study every Wednesday.", "Yes, I came a little early.", "I had to finish a lab report.", "The group has five members."], answer: 2 },
-    { say: "The printer on the second floor is out of paper again.", options: ["It's made of recycled paper.", "I printed it on the first try.", "The second floor is quieter.", "Again? I'll let the front desk know."], answer: 3 },
-    { say: "How long did it take you to finish the reading?", options: ["About two hours.", "I read it in the library.", "Chapters four and five.", "It's due on Friday."], answer: 0 }
+    { say: "Do you know if the library is open on Sunday?", options: ["I think it opens at noon.", "I returned the book yesterday.", "Yes, it's a big library.", "Sunday was really busy for me."], answer: 0, why: "Only \"It opens at noon\" answers whether it's open. The others reuse \"library\" or \"Sunday\" without answering." },
+    { say: "Would you mind if I borrowed your notes from Tuesday's lecture?", options: ["No, I didn't take the bus.", "Sure, I'll email them to you tonight.", "The lecture was on Tuesday.", "I mind it very much, thanks."], answer: 1, why: "\"Would you mind\u2026?\" asks permission, and agreeing to send the notes is the natural reply." },
+    { say: "Why didn't you come to the study group last night?", options: ["We study every Wednesday.", "Yes, I came a little early.", "I had to finish a lab report.", "The group has five members."], answer: 2, why: "A \"why\" question needs a reason, and finishing a lab report is one." },
+    { say: "The printer on the second floor is out of paper again.", options: ["It's made of recycled paper.", "I printed it on the first try.", "The second floor is quieter.", "Again? I'll let the front desk know."], answer: 3, why: "This reports a problem, so a natural reply reacts and offers help. The others just repeat words." },
+    { say: "How long did it take you to finish the reading?", options: ["About two hours.", "I read it in the library.", "Chapters four and five.", "It's due on Friday."], answer: 0, why: "\"How long\" asks for an amount of time, and \"About two hours\" is the only one." }
   ] },
   { title: "Campus questions, set B", items: [
-    { say: "Have you decided which elective you're taking next semester?", options: ["The semester starts in August.", "I'm leaning toward photography.", "No, I decided yesterday.", "Electives are worth three credits."], answer: 1 },
-    { say: "Isn't the deadline for the scholarship application this Friday?", options: ["Friday works for lunch.", "The application is two pages long.", "No, they extended it to next week.", "I applied for a part-time job."], answer: 2 },
-    { say: "Could you show me how to reserve a study room?", options: ["Sure, it's on the library website. I'll walk you through it.", "The study room was very quiet.", "I reserved my seat on the train.", "Yes, the rooms are on the third floor."], answer: 0 },
-    { say: "I can't believe how crowded the cafeteria was today.", options: ["The food there is pretty cheap.", "I know, I ended up eating outside.", "It's open until eight.", "I believe you can."], answer: 1 },
-    { say: "Should we meet before class or after?", options: ["Yes, we should.", "The class is in Room 204.", "I met him after class.", "Before works better for me."], answer: 3 }
+    { say: "Have you decided which elective you're taking next semester?", options: ["The semester starts in August.", "I'm leaning toward photography.", "No, I decided yesterday.", "Electives are worth three credits."], answer: 1, why: "\"Leaning toward photography\" names an elective. \"No, I decided yesterday\" contradicts itself." },
+    { say: "Isn't the deadline for the scholarship application this Friday?", options: ["Friday works for lunch.", "The application is two pages long.", "No, they extended it to next week.", "I applied for a part-time job."], answer: 2, why: "The speaker is checking a fact, and the reply corrects it: the deadline moved." },
+    { say: "Could you show me how to reserve a study room?", options: ["Sure, it's on the library website. I'll walk you through it.", "The study room was very quiet.", "I reserved my seat on the train.", "Yes, the rooms are on the third floor."], answer: 0, why: "It's a request for help, and only this reply agrees and explains how." },
+    { say: "I can't believe how crowded the cafeteria was today.", options: ["The food there is pretty cheap.", "I know, I ended up eating outside.", "It's open until eight.", "I believe you can."], answer: 1, why: "A comment invites a shared reaction. \"I believe you can\" misreads \"I can't believe.\"" },
+    { say: "Should we meet before class or after?", options: ["Yes, we should.", "The class is in Room 204.", "I met him after class.", "Before works better for me."], answer: 3, why: "A choice question needs a choice. \"Yes, we should\" doesn't pick one." }
   ] }
 ],
 convo: [
@@ -77,9 +77,9 @@ convo: [
     { s: 1, name: "Student", t: "That sounds much more manageable. Should I still use general sources about renewable energy?" },
     { s: 0, name: "Professor", t: "A few, for background. But most of your sources should be specific to your narrower topic. And bring me an outline by next Friday so we can check you're on track." }],
     questions: [
-      { q: "What problem does the student have?", options: ["She missed the deadline for her paper", "Her topic is too broad", "She cannot find any sources", "She disagrees with her grade"], answer: 1 },
-      { q: "What does the professor suggest?", options: ["Changing to a completely different subject", "Interviewing people in her hometown", "Focusing on solar panels in public schools", "Using only general sources"], answer: 2 },
-      { q: "What will the student probably do next?", options: ["Prepare an outline by next Friday", "Visit her hometown", "Start writing the final paper", "Meet with a librarian"], answer: 0 }
+      { q: "What problem does the student have?", options: ["She missed the deadline for her paper", "Her topic is too broad", "She cannot find any sources", "She disagrees with her grade"], answer: 1, why: "She found hundreds of sources and feels overwhelmed; the professor calls the topic \"huge.\"" },
+      { q: "What does the professor suggest?", options: ["Changing to a completely different subject", "Interviewing people in her hometown", "Focusing on solar panels in public schools", "Using only general sources"], answer: 2, why: "The professor says, \"Why not focus on solar panels in public schools?\"" },
+      { q: "What will the student probably do next?", options: ["Prepare an outline by next Friday", "Visit her hometown", "Start writing the final paper", "Meet with a librarian"], answer: 0, why: "The professor asks for an outline \"by next Friday.\"" }
     ] },
   { title: "Returning a textbook", lines: [
     { s: 0, name: "Student", t: "Hi, I'd like to return this textbook. I dropped the class." },
@@ -92,55 +92,55 @@ convo: [
     { s: 1, name: "Clerk", t: "Sure, here you go. And since you dropped the class, you might want to check with the registrar about whether you need another course to stay full-time." },
     { s: 0, name: "Student", t: "Good point. I hadn't thought about that." }],
     questions: [
-      { q: "Why does the student go to the bookstore?", options: ["To buy a new textbook", "To return a book for a class he dropped", "To ask about a part-time job", "To find a lost receipt"], answer: 1 },
-      { q: "What could prevent the student from getting a full refund?", options: ["He lost his receipt", "The refund period has ended", "His name is written in the book", "The book is damaged"], answer: 2 },
-      { q: "What does the clerk suggest the student do?", options: ["Sell the book online", "Check with the registrar about his course load", "Buy a used copy instead", "Come back next week"], answer: 1 }
+      { q: "Why does the student go to the bookstore?", options: ["To buy a new textbook", "To return a book for a class he dropped", "To ask about a part-time job", "To find a lost receipt"], answer: 1, why: "His first line: he wants to return the book because he dropped the class." },
+      { q: "What could prevent the student from getting a full refund?", options: ["He lost his receipt", "The refund period has ended", "His name is written in the book", "The book is damaged"], answer: 2, why: "His name is written inside the cover. Unless he erases it, the book counts as used." },
+      { q: "What does the clerk suggest the student do?", options: ["Sell the book online", "Check with the registrar about his course load", "Buy a used copy instead", "Come back next week"], answer: 1, why: "The clerk suggests checking with the registrar about staying full-time." }
     ] }
 ],
 announce: [
   { title: "Science building entrance", lines: [
     { s: 0, name: "Speaker", t: "Good morning, everyone. This is a reminder that the main entrance to the science building will be closed starting tomorrow for repairs to the front steps. Please use the side entrance on Elm Street. If you need an accessible entrance, the ramp at the back of the building near the parking lot remains open. The repairs should take about two weeks. Classes will not be moved, so please allow a few extra minutes to reach your rooms." }],
     questions: [
-      { q: "What is the announcement mainly about?", options: ["A change in class locations", "A temporary closure of a building entrance", "A new parking policy", "The opening of a new science building"], answer: 1 },
-      { q: "What are listeners advised to do?", options: ["Allow extra time to get to class", "Park behind the building", "Attend classes online", "Report problems with the steps"], answer: 0 }
+      { q: "What is the announcement mainly about?", options: ["A change in class locations", "A temporary closure of a building entrance", "A new parking policy", "The opening of a new science building"], answer: 1, why: "The main entrance closes for repairs, and listeners are told which entrances to use instead." },
+      { q: "What are listeners advised to do?", options: ["Allow extra time to get to class", "Park behind the building", "Attend classes online", "Report problems with the steps"], answer: 0, why: "Classes are not moving, so people should \"allow a few extra minutes\" to reach their rooms." }
     ] },
   { title: "Midterm date change", lines: [
     { s: 1, name: "Professor", t: "Before you leave, a quick change to the schedule. The midterm exam, which was planned for next Thursday, has been moved to the following Monday because the lecture hall is needed for a university event. The format stays the same: multiple-choice questions and two short essays. I'll hold an extra review session this Friday at four in Room 110. Attendance isn't required, but I strongly recommend it, especially if you missed any classes." }],
     questions: [
-      { q: "Why was the exam moved?", options: ["The professor will be away", "Students asked for more time", "The room is needed for another event", "The exam format changed"], answer: 2 },
-      { q: "What does the professor say about the review session?", options: ["It is required for all students", "It is optional but recommended", "It will be held online", "It replaces next Monday's class"], answer: 1 }
+      { q: "Why was the exam moved?", options: ["The professor will be away", "Students asked for more time", "The room is needed for another event", "The exam format changed"], answer: 2, why: "The lecture hall \"is needed for a university event.\"" },
+      { q: "What does the professor say about the review session?", options: ["It is required for all students", "It is optional but recommended", "It will be held online", "It replaces next Monday's class"], answer: 1, why: "\"Attendance isn't required, but I strongly recommend it\" means optional but recommended." }
     ] }
 ],
 talk: [
   { title: "Do bears really hibernate?", lines: [
     { s: 0, name: "Professor", t: "Today let's talk about how some animals survive the winter. You might assume bears hibernate the same way small mammals do, but biologists actually debate that. True hibernators, like ground squirrels, drop their body temperature close to freezing, and their heart rate falls dramatically. Waking them up takes hours. Bears, on the other hand, only lower their body temperature by a few degrees. They can wake relatively quickly if disturbed, which is why you should never assume a sleeping bear in a den is harmless. Some scientists use the term torpor for this lighter state, while others argue that bears are simply a special kind of hibernator. What everyone agrees on is that bears can go months without eating or drinking, and they recycle waste products in their bodies into proteins. Researchers are studying this ability for clues about treating kidney disease in humans." }],
     questions: [
-      { q: "What is the talk mainly about?", options: ["Why bears are dangerous", "How the winter state of bears differs from true hibernation", "How ground squirrels find food in winter", "Treatments for kidney disease"], answer: 1 },
-      { q: "What does the professor say about ground squirrels?", options: ["Their body temperature drops close to freezing", "They wake up quickly when disturbed", "They eat throughout the winter", "They are a kind of bear"], answer: 0 },
-      { q: "Why does the professor mention kidney disease?", options: ["To explain why bears sleep so long", "To show that bears often get sick", "To point out that bear biology may help medical research", "To compare bears with ground squirrels"], answer: 2 }
+      { q: "What is the talk mainly about?", options: ["Why bears are dangerous", "How the winter state of bears differs from true hibernation", "How ground squirrels find food in winter", "Treatments for kidney disease"], answer: 1, why: "The talk compares bears' lighter winter state with true hibernation, as in ground squirrels." },
+      { q: "What does the professor say about ground squirrels?", options: ["Their body temperature drops close to freezing", "They wake up quickly when disturbed", "They eat throughout the winter", "They are a kind of bear"], answer: 0, why: "True hibernators \"drop their body temperature close to freezing.\"" },
+      { q: "Why does the professor mention kidney disease?", options: ["To explain why bears sleep so long", "To show that bears often get sick", "To point out that bear biology may help medical research", "To compare bears with ground squirrels"], answer: 2, why: "Researchers study how bears recycle waste \"for clues about treating kidney disease in humans.\"" }
     ] },
   { title: "Opportunity cost", lines: [
     { s: 1, name: "Professor", t: "In economics, we often talk about opportunity cost. The opportunity cost of a choice is the value of the best alternative you give up. Let's say you have Saturday free. You could work a shift at a café and earn eighty dollars, or you could go to a concert. The ticket is fifty dollars. Many people would say the concert costs fifty dollars. But an economist would say the true cost is one hundred and thirty: the fifty you pay, plus the eighty you gave up by not working. This idea explains some decisions that otherwise seem strange. For example, why do highly paid professionals often hire someone to clean their homes, even though they're perfectly able to do it themselves? Because every hour spent cleaning is an hour not spent earning at a much higher rate." }],
     questions: [
-      { q: "How does the professor define opportunity cost?", options: ["The price written on a ticket", "The value of the best alternative that is given up", "The money earned from a part-time job", "The cost of hiring another person"], answer: 1 },
-      { q: "According to the professor, what is the true cost of the concert in the example?", options: ["$50", "$80", "$130", "$30"], answer: 2 },
-      { q: "Why does the professor mention professionals who hire cleaners?", options: ["To show that the concept explains choices about time", "To criticize people who earn high salaries", "To describe a typical weekend job", "To explain how cleaners set their prices"], answer: 0 }
+      { q: "How does the professor define opportunity cost?", options: ["The price written on a ticket", "The value of the best alternative that is given up", "The money earned from a part-time job", "The cost of hiring another person"], answer: 1, why: "The definition is \"the value of the best alternative you give up.\"" },
+      { q: "According to the professor, what is the true cost of the concert in the example?", options: ["$50", "$80", "$130", "$30"], answer: 2, why: "$50 for the ticket plus the $80 given up by not working = $130." },
+      { q: "Why does the professor mention professionals who hire cleaners?", options: ["To show that the concept explains choices about time", "To criticize people who earn high salaries", "To describe a typical weekend job", "To explain how cleaners set their prices"], answer: 0, why: "Hiring a cleaner frees time for better-paid work, so the idea explains choices about time." }
     ] }
 ],
 build: [
   { title: "Everyday replies, set A", items: [
-    { context: "Did you finish the lab report?", answer: "I still need to write the conclusion", end: ".", distractor: "already" },
-    { context: "Where did you find that book?", answer: "I borrowed it from the library downstairs", end: ".", distractor: "borrow" },
-    { context: "Why was the meeting canceled?", answer: "The manager had to leave for an emergency", end: ".", distractor: "has" },
-    { context: "What did the professor say about the exam?", answer: "She told us that it would be postponed", end: ".", distractor: "will" },
-    { context: "Are you coming to the review session tonight?", answer: "I would come if I didn't have work", alts: ["If I didn't have work I would come"], end: ".", distractor: "will" }
+    { context: "Did you finish the lab report?", answer: "I still need to write the conclusion", end: ".", distractor: "already", why: "\"Still\" goes before the main verb: \"I still need to\u2026\". \"Already\" doesn't fit an unfinished task." },
+    { context: "Where did you find that book?", answer: "I borrowed it from the library downstairs", end: ".", distractor: "borrow", why: "Past tense \"borrowed\" matches \"Where did you find\u2026?\" \"Borrow\" is the wrong tense." },
+    { context: "Why was the meeting canceled?", answer: "The manager had to leave for an emergency", end: ".", distractor: "has", why: "\"Had to\" is the past of \"have to.\" \"Has\" doesn't fit a past event." },
+    { context: "What did the professor say about the exam?", answer: "She told us that it would be postponed", end: ".", distractor: "will", why: "Reported speech shifts \"will\" to \"would\": \"She told us that it would be postponed.\"" },
+    { context: "Are you coming to the review session tonight?", answer: "I would come if I didn't have work", alts: ["If I didn't have work I would come"], end: ".", distractor: "will", why: "Imagined situation: \"would + verb\" with \"if + past\" (\"if I didn't have work\"), not \"will.\"" }
   ] },
   { title: "Everyday replies, set B", items: [
-    { context: "How was your trip to Seoul?", answer: "It was much more relaxing than I expected", end: ".", distractor: "most" },
-    { context: "Did you ask the librarian for help?", answer: "I asked her where the journals are kept", end: ".", distractor: "do" },
-    { context: "Have you started the group project?", answer: "We have been working on it since Monday", alts: ["Since Monday we have been working on it"], end: ".", distractor: "for" },
-    { context: "Why are you studying so late?", answer: "I want to be ready for tomorrow's quiz", end: ".", distractor: "being" },
-    { context: "What do you think of the new café?", answer: "The coffee is good but the prices are high", alts: ["The prices are high but the coffee is good"], end: ".", distractor: "price" }
+    { context: "How was your trip to Seoul?", answer: "It was much more relaxing than I expected", end: ".", distractor: "most", why: "Comparatives use \"more \u2026 than.\" \"Most\" is the superlative and can't go with \"than.\"" },
+    { context: "Did you ask the librarian for help?", answer: "I asked her where the journals are kept", end: ".", distractor: "do", why: "In an embedded question the subject comes first: \"where the journals are kept.\"" },
+    { context: "Have you started the group project?", answer: "We have been working on it since Monday", alts: ["Since Monday we have been working on it"], end: ".", distractor: "for", why: "\"Since\" takes a starting point (Monday). \"For\" would need a length of time." },
+    { context: "Why are you studying so late?", answer: "I want to be ready for tomorrow's quiz", end: ".", distractor: "being", why: "After \"want to,\" use the base verb \"be,\" not \"being.\"" },
+    { context: "What do you think of the new café?", answer: "The coffee is good but the prices are high", alts: ["The prices are high but the coffee is good"], end: ".", distractor: "price", why: "\"But\" joins two contrasting clauses. \"Price\" is singular and can't go with \"are.\"" }
   ] }
 ],
 email: [
