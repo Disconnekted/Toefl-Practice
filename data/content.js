@@ -263,21 +263,531 @@ DATA.trans = [
 ];
 
 DATA.vic = [
-  { title: "Context clues, set A", items: [
-    { text: "Unlike his {{garrulous}} older brother, [[who could talk for hours]], Tom rarely said more than a few words.", options: ["very talkative", "very quiet", "rude", "intelligent"], answer: 0, clue: "definition", why: "The phrase right after the word explains it directly: someone who can talk for hours. \"Unlike\" also contrasts him with quiet Tom." },
-    { text: "Some animals are {{nocturnal}}; [[for example, owls and bats hunt at night and sleep during the day]].", options: ["dangerous to people", "active at night", "able to fly", "living in groups"], answer: 1, clue: "example", why: "The examples share one feature: they are active at night. Ask yourself what the examples have in common." },
-    { text: "Although the first version of the software was {{cumbersome}}, the new one is [[light and easy to use]].", options: ["expensive", "fast", "heavy and hard to handle", "popular"], answer: 2, clue: "contrast", why: "\"Although\" sets up an opposite. If the new one is light and easy, the old one was the reverse." },
-    { text: "The professor's explanation was so {{lucid}} that [[even students who had never studied physics understood it immediately]].", options: ["long", "clear", "funny", "advanced"], answer: 1, clue: "general sense", why: "\"So … that\" shows a result. If beginners understood immediately, the explanation must have been clear." },
-    { text: "The town's water supply was {{contaminated}}, or [[polluted]], by chemicals from a nearby factory.", options: ["made impure", "increased", "measured", "cleaned"], answer: 0, clue: "synonym", why: "\"Or\" followed by a single word often gives a simpler synonym." }
-  ] },
-  { title: "Context clues, set B", items: [
-    { text: "Scientists consider the lemur {{endemic}} to Madagascar, [[meaning it is found nowhere else in the world]].", options: ["in danger of extinction", "found only in one place", "recently discovered", "very common"], answer: 1, clue: "definition", why: "\"Meaning\" introduces a direct definition. Other signals include \"that is,\" \"in other words,\" and dashes." },
-    { text: "Her approach was {{pragmatic}} rather than [[idealistic]]: she focused on what could actually be done.", options: ["emotional", "practical", "unusual", "careless"], answer: 1, clue: "contrast", why: "\"Rather than\" shows the opposite of idealistic. The colon then confirms it: what could actually be done." },
-    { text: "Several {{ungulates}}, [[such as horses, deer, and cattle]], were found grazing in the valley.", options: ["birds of prey", "hoofed mammals", "farm workers", "small insects"], answer: 1, clue: "example", why: "\"Such as\" lists examples. Horses, deer, and cattle are all large animals with hooves." },
-    { text: "Prices remained {{volatile}} throughout the year, [[rising sharply one week and falling the next]].", options: ["low", "stable", "changing unpredictably", "controlled by law"], answer: 2, clue: "definition", why: "The phrase after the comma describes exactly what volatile prices do." },
-    { text: "The speaker's tone was {{conciliatory}}; [[she apologized for the misunderstanding and offered to work together]].", options: ["angry", "trying to make peace", "confused", "very formal"], answer: 1, clue: "general sense", why: "Apologizing and offering to cooperate are peace-making actions. Use the described behavior to work out the word." }
-  ] }
+ {
+  "title": "PrepScholar words, set 1",
+  "items": [
+   {
+    "text": "Despite hours of debate, the senator remained {{adamant}}, [[refusing to change her opinion no matter what evidence was shown]].",
+    "options": [
+     "openly confused",
+     "quietly hopeful",
+     "firmly unwilling to change one's mind",
+     "easily persuaded"
+    ],
+    "answer": 2,
+    "clue": "definition",
+    "why": "The phrase after the comma explains the word directly: refusing to change her opinion."
+   },
+   {
+    "text": "The student took {{copious}}, or [[very plentiful]], notes during the two-hour lecture.",
+    "options": [
+     "careless",
+     "large in amount",
+     "neat and organized",
+     "brief"
+    ],
+    "answer": 1,
+    "clue": "synonym",
+    "why": "\"Or\" followed by a simpler word usually gives a synonym."
+   },
+   {
+    "text": "Unlike the [[warm and patient]] receptionist, the manager was {{brusque}}, answering in two words and walking away.",
+    "options": [
+     "extremely helpful",
+     "nervous",
+     "talkative",
+     "abrupt and unfriendly"
+    ],
+    "answer": 3,
+    "clue": "contrast",
+    "why": "\"Unlike\" signals the opposite of warm and patient, and the behavior confirms it."
+   },
+   {
+    "text": "The street was a {{cacophony}} of sounds, [[such as car horns, barking dogs, and drilling machines all at once]].",
+    "options": [
+     "a harsh mixture of noises",
+     "a quiet atmosphere",
+     "a type of music",
+     "a large crowd"
+    ],
+    "answer": 0,
+    "clue": "example",
+    "why": "\"Such as\" lists examples, and all of them are loud, clashing sounds."
+   },
+   {
+    "text": "The judge dismissed the lawsuit as {{frivolous}}, [[saying it was not worth the court's time]].",
+    "options": [
+     "of little importance",
+     "illegal",
+     "very expensive",
+     "carefully prepared"
+    ],
+    "answer": 0,
+    "clue": "general sense",
+    "why": "If something isn't worth the court's time, it must be unimportant."
+   }
+  ]
+ },
+ {
+  "title": "PrepScholar words, set 2",
+  "items": [
+   {
+    "text": "There is a {{paucity}} of research on deep-sea creatures; [[in other words, very little information exists]].",
+    "options": [
+     "a small amount; scarcity",
+     "a large collection",
+     "a serious error",
+     "a new discovery"
+    ],
+    "answer": 0,
+    "clue": "definition",
+    "why": "\"In other words\" introduces a restatement of the word's meaning."
+   },
+   {
+    "text": "Whereas her brother [[decides quickly and sticks to his choice]], she tends to {{vacillate}} for weeks.",
+    "options": [
+     "complain loudly",
+     "compare prices",
+     "keep changing one's mind",
+     "act quickly"
+    ],
+    "answer": 2,
+    "clue": "contrast",
+    "why": "\"Whereas\" sets up an opposite: she does the reverse of deciding quickly and sticking to it."
+   },
+   {
+    "text": "He was famously {{parsimonious}}; [[for example, he reused tea bags and refused to turn on the heat in winter]].",
+    "options": [
+     "extremely unwilling to spend money",
+     "very generous",
+     "lazy",
+     "forgetful"
+    ],
+    "answer": 0,
+    "clue": "example",
+    "why": "Both examples show someone avoiding spending money."
+   },
+   {
+    "text": "The {{irascible}} old professor [[shouted at students who arrived even a minute late]].",
+    "options": [
+     "forgetful",
+     "easily angered",
+     "highly respected",
+     "soft-spoken"
+    ],
+    "answer": 1,
+    "clue": "general sense",
+    "why": "Shouting over one minute shows someone who gets angry very easily."
+   },
+   {
+    "text": "The radio message was {{garbled}}, or [[distorted]], so the pilot asked for it to be repeated.",
+    "options": [
+     "mixed up and hard to understand",
+     "very loud",
+     "secret",
+     "very short"
+    ],
+    "answer": 0,
+    "clue": "synonym",
+    "why": "\"Or distorted\" gives a synonym, and asking for a repeat confirms it."
+   }
+  ]
+ },
+ {
+  "title": "PrepScholar words, set 3",
+  "items": [
+   {
+    "text": "Critics called the film's ending {{hackneyed}}, [[meaning it had been used so many times that it no longer surprised anyone]].",
+    "options": [
+     "overused and unoriginal",
+     "shocking",
+     "confusing",
+     "beautifully filmed"
+    ],
+    "answer": 0,
+    "clue": "definition",
+    "why": "\"Meaning\" introduces a direct definition."
+   },
+   {
+    "text": "While most travelers [[avoided the dangerous mountain pass]], a few {{intrepid}} explorers crossed it alone.",
+    "options": [
+     "lost",
+     "experienced in medicine",
+     "exhausted",
+     "fearless"
+    ],
+    "answer": 3,
+    "clue": "contrast",
+    "why": "\"While\" contrasts them with travelers who avoided danger, so they are brave."
+   },
+   {
+    "text": "The workers lived in {{squalid}} conditions, [[with overflowing garbage, broken windows, and no clean water]].",
+    "options": [
+     "crowded but comfortable",
+     "temporary",
+     "expensive",
+     "dirty and unpleasant"
+    ],
+    "answer": 3,
+    "clue": "example",
+    "why": "Every detail listed describes dirt and neglect."
+   },
+   {
+    "text": "After losing the final, the players sat in the locker room, {{morose}} and [[gloomy]], saying nothing.",
+    "options": [
+     "sad and silent",
+     "angry",
+     "excited",
+     "relieved"
+    ],
+    "answer": 0,
+    "clue": "synonym",
+    "why": "Words joined by \"and\" in a description often share a meaning."
+   },
+   {
+    "text": "Digital cameras quickly {{supplanted}} film cameras, [[and within a decade most film factories had closed]].",
+    "options": [
+     "improved",
+     "replaced",
+     "copied",
+     "advertised"
+    ],
+    "answer": 1,
+    "clue": "general sense",
+    "why": "If film factories closed, digital cameras must have taken film's place."
+   }
+  ]
+ },
+ {
+  "title": "PrepScholar words, set 4",
+  "items": [
+   {
+    "text": "The stone wall is the last {{vestige}} of the castle, [[that is, the only small trace that remains of it]].",
+    "options": [
+     "a small remaining trace",
+     "the main entrance",
+     "a modern copy",
+     "the original plan"
+    ],
+    "answer": 0,
+    "clue": "definition",
+    "why": "\"That is\" introduces a definition."
+   },
+   {
+    "text": "[[Mr. Park is a strict grader]], but Ms. Lee is {{lenient}} and often accepts late homework without penalty.",
+    "options": [
+     "very organized",
+     "unfair",
+     "demanding",
+     "not strict; forgiving"
+    ],
+    "answer": 3,
+    "clue": "contrast",
+    "why": "\"But\" contrasts her with a strict grader, and accepting late work confirms it."
+   },
+   {
+    "text": "With no fresh water flowing in, the pond became {{stagnant}} and [[began to smell]].",
+    "options": [
+     "still and not flowing",
+     "frozen",
+     "very deep",
+     "clean"
+    ],
+    "answer": 0,
+    "clue": "general sense",
+    "why": "Water that has no flow and starts to smell is still and unmoving."
+   },
+   {
+    "text": "The claim that the moon is made of cheese is {{ludicrous}}, or simply [[ridiculous]].",
+    "options": [
+     "absurd",
+     "scientific",
+     "popular",
+     "ancient"
+    ],
+    "answer": 0,
+    "clue": "synonym",
+    "why": "\"Or simply\" gives an easier synonym."
+   },
+   {
+    "text": "Small groups of protesters began to {{coalesce}}; [[for instance, three separate marches joined into one large crowd downtown]].",
+    "options": [
+     "argue",
+     "come together into one",
+     "break apart",
+     "disappear"
+    ],
+    "answer": 1,
+    "clue": "example",
+    "why": "The example shows separate groups joining into one."
+   }
+  ]
+ },
+ {
+  "title": "PrepScholar words, set 5",
+  "items": [
+   {
+    "text": "Although the other runners [[looked nervous before the race]], Ana seemed {{nonchalant}}, chatting and laughing.",
+    "options": [
+     "calm and unconcerned",
+     "worried",
+     "injured",
+     "competitive"
+    ],
+    "answer": 0,
+    "clue": "contrast",
+    "why": "\"Although\" contrasts her with nervous runners."
+   },
+   {
+    "text": "The speech turned into a {{diatribe}}, [[a bitter attack on the government that lasted almost an hour]].",
+    "options": [
+     "a celebration",
+     "a short summary",
+     "a joke",
+     "an angry, critical speech"
+    ],
+    "answer": 3,
+    "clue": "definition",
+    "why": "The phrase after the comma restates what the word means."
+   },
+   {
+    "text": "Plants are {{sparse}} in this desert; [[travelers can walk for miles without seeing a single tree]].",
+    "options": [
+     "thinly scattered",
+     "colorful",
+     "poisonous",
+     "thick"
+    ],
+    "answer": 0,
+    "clue": "general sense",
+    "why": "Walking miles without seeing a tree means plants are few and far apart."
+   },
+   {
+    "text": "His plans were {{grandiose}}; [[for example, he wanted to build the world's tallest tower and a private airport on his small farm]].",
+    "options": [
+     "practical",
+     "far too ambitious and showy",
+     "secret",
+     "inexpensive"
+    ],
+    "answer": 1,
+    "clue": "example",
+    "why": "The examples are huge, unrealistic projects."
+   },
+   {
+    "text": "Drivers must be {{cognizant}}, or [[aware]], of children walking near schools.",
+    "options": [
+     "aware",
+     "afraid",
+     "tired",
+     "respectful"
+    ],
+    "answer": 0,
+    "clue": "synonym",
+    "why": "\"Or aware\" gives a direct synonym."
+   }
+  ]
+ },
+ {
+  "title": "Academic Word List, set 1",
+  "items": [
+   {
+    "text": "The instructions were {{ambiguous}}, [[meaning they could be understood in more than one way]].",
+    "options": [
+     "too long",
+     "unclear; having more than one meaning",
+     "strict",
+     "well written"
+    ],
+    "answer": 1,
+    "clue": "definition",
+    "why": "\"Meaning\" introduces a direct definition."
+   },
+   {
+    "text": "Instead of [[being based on clear rules]], the fines seemed {{arbitrary}}: some drivers paid $20 and others $200 for the same mistake.",
+    "options": [
+     "fair",
+     "expensive",
+     "based on chance, not reason",
+     "temporary"
+    ],
+    "answer": 2,
+    "clue": "contrast",
+    "why": "\"Instead of\" shows the opposite of clear rules, and the uneven fines confirm it."
+   },
+   {
+    "text": "The theory sounded convincing, but it lacked {{empirical}} support; [[no one had actually tested it through observation]].",
+    "options": [
+     "financial",
+     "political",
+     "written",
+     "based on observation or experiment"
+    ],
+    "answer": 3,
+    "clue": "general sense",
+    "why": "The second half explains what kind of support is missing: real testing."
+   },
+   {
+    "text": "Risk is an {{inherent}}, or [[built-in]], part of investing.",
+    "options": [
+     "unusual",
+     "naturally part of something",
+     "avoidable",
+     "minor"
+    ],
+    "answer": 1,
+    "clue": "synonym",
+    "why": "\"Or built-in\" gives a synonym."
+   },
+   {
+    "text": "Online learning created a new {{paradigm}} for education; [[for example, students now watch lectures at home and solve problems in class]].",
+    "options": [
+     "a model or way of doing things",
+     "a type of computer",
+     "a legal rule",
+     "a short course"
+    ],
+    "answer": 0,
+    "clue": "example",
+    "why": "The example describes a whole new pattern of teaching."
+   }
+  ]
+ },
+ {
+  "title": "Academic Word List, set 2",
+  "items": [
+   {
+    "text": "The team won the final, {{albeit}} [[by only one point]].",
+    "options": [
+     "because",
+     "therefore",
+     "although",
+     "especially"
+    ],
+    "answer": 2,
+    "clue": "general sense",
+    "why": "Winning \"by only one point\" adds a limit to the win, which is what \"although\" does."
+   },
+   {
+    "text": "She studies for {{intrinsic}} reasons, [[not for grades or prizes]]; she simply enjoys learning.",
+    "options": [
+     "financial",
+     "coming from within; natural",
+     "outside",
+     "temporary"
+    ],
+    "answer": 1,
+    "clue": "contrast",
+    "why": "\"Not for grades or prizes\" rules out outside rewards."
+   },
+   {
+    "text": "Warm air rises; {{conversely}}, [[cool air sinks]].",
+    "options": [
+     "in the opposite way",
+     "similarly",
+     "as a result",
+     "for example"
+    ],
+    "answer": 0,
+    "clue": "general sense",
+    "why": "Rising and sinking are opposites, so the word links opposite ideas."
+   },
+   {
+    "text": "The rule was never [[written down or stated directly]], but there was an {{implicit}} agreement that no one would work on Sundays.",
+    "options": [
+     "official",
+     "understood without being stated",
+     "temporary",
+     "written"
+    ],
+    "answer": 1,
+    "clue": "contrast",
+    "why": "\"But\" contrasts it with being stated directly."
+   },
+   {
+    "text": "The essay lacked {{coherence}}; [[its ideas did not connect logically from one paragraph to the next]].",
+    "options": [
+     "length",
+     "vocabulary",
+     "logical connection and consistency",
+     "neat handwriting"
+    ],
+    "answer": 2,
+    "clue": "definition",
+    "why": "The second half explains exactly what was missing."
+   }
+  ]
+ },
+ {
+  "title": "Academic Word List, set 3",
+  "items": [
+   {
+    "text": "{{Notwithstanding}} [[the heavy rain]], the outdoor concert went ahead as planned.",
+    "options": [
+     "despite",
+     "because of",
+     "before",
+     "during"
+    ],
+    "answer": 0,
+    "clue": "general sense",
+    "why": "A concert going ahead in heavy rain happened in spite of it."
+   },
+   {
+    "text": "The city introduced a system {{whereby}} [[residents can report broken streetlights through an app]].",
+    "options": [
+     "by which",
+     "unless",
+     "where",
+     "after"
+    ],
+    "answer": 0,
+    "clue": "general sense",
+    "why": "The phrase describes how the system works, so the word means \"by which\"."
+   },
+   {
+    "text": "He was {{reluctant}} to speak in class, [[unlike his classmates, who eagerly raised their hands]].",
+    "options": [
+     "unwilling; hesitant",
+     "eager",
+     "prepared",
+     "forbidden"
+    ],
+    "answer": 0,
+    "clue": "contrast",
+    "why": "\"Unlike\" contrasts him with eager classmates."
+   },
+   {
+    "text": "Coastal {{erosion}} is visible everywhere here; [[for instance, a road that once ran along the cliff has fallen into the sea]].",
+    "options": [
+     "flooding",
+     "the gradual wearing away of land",
+     "construction",
+     "pollution"
+    ],
+    "answer": 1,
+    "clue": "example",
+    "why": "The example shows land slowly being worn away by the sea."
+   },
+   {
+    "text": "Both companies agreed to {{mediation}}, or [[help from a neutral third party]], to settle the dispute.",
+    "options": [
+     "a court trial",
+     "a public vote",
+     "a merger",
+     "help from a neutral person to settle a conflict"
+    ],
+    "answer": 3,
+    "clue": "definition",
+    "why": "\"Or\" introduces an explanation of the word."
+   }
+  ]
+ }
 ];
+
+// Word bank for new vocabulary sets from Claude: the PrepScholar
+// "327 TOEFL Words" list plus the Academic Word List flashcards.
+DATA.vicWords = ["abundant", "accompanied", "accumulate", "accumulation", "accurate", "accustomed", "acknowledged", "acquire", "acquisition", "adamant", "adequate", "adjacent", "adjust", "adjustment", "administration", "adults", "advantage", "adverse", "advocate", "affect", "aggregate", "aggressive", "aid", "albeit", "allocate", "allocation", "alter", "alternative", "amateur", "ambiguous", "ambitious", "amend", "amendment", "ample", "analogous", "annual", "anomaly", "antagonize", "anticipated", "apparent", "appendix", "appreciation", "approach", "appropriate", "approximated", "arbitrary", "arduous", "area", "aspects", "assembly", "assessment", "assigned", "assistance", "assuage", "assume", "assurance", "attached", "attained", "attitude", "attitudes", "attribute", "attributed", "augment", "author", "authority", "automatically", "available", "aware", "behalf", "benefit", "berate", "bestow", "bias", "boast", "bond", "boost", "brash", "brief", "brusque", "bulk", "cacophony", "capable", "capacity", "categories", "cease", "ceases", "censure", "challenge", "channel", "chapter", "chart", "chemical", "chronological", "circumstances", "cited", "civil", "clarify", "clarity", "classical", "clause", "coalesce", "code", "coerce", "cognizant", "coherence", "cohesion", "coincide", "collapse", "colleagues", "collide", "commenced", "comments", "commission", "commitment", "commodity", "communication", "community", "compensation", "compiled", "complement", "complex", "components", "compounds", "comprehensive", "comprise", "computer", "conceal", "conceived", "concentration", "concept", "conclusion", "concur", "concurrent", "conduct", "conference", "confined", "confirmed", "conflict", "conformity", "consent", "consequences", "considerable", "consistent", "constant", "constitutional", "constrain", "constraints", "construction", "consultation", "consumer", "contact", "contemplate", "contemporary", "context", "continuously", "contract", "contradict", "contradiction", "contrary", "contrast", "contribute", "contribution", "controversy", "convention", "conversely", "converted", "convey", "convinced", "cooperative", "coordination", "copious", "core", "corporate", "corresponding", "corrode", "couple", "create", "credit", "criteria", "crucial", "cultural", "cumbersome", "currency", "curriculum", "cycle", "data", "debate", "decades", "decay", "deceive", "decipher", "declaration", "decline", "deduction", "definite", "definition", "degrade", "demonstrate", "denote", "deny", "deplete", "deposit", "depression", "derived", "design", "desirable", "despise", "despite", "detect", "detected", "deter", "deviate", "deviation", "device", "devise", "devoted", "diatribe", "differentiation", "digress", "dilemma", "dimensions", "diminish", "diminished", "discretion", "discrimination", "displacement", "display", "disposal", "dispose", "disproportionate", "disrupt", "distinction", "distort", "distorted", "distribute", "distribution", "diverse", "diversity", "divert", "document", "domain", "domestic", "dominant", "draft", "dramatic", "duration", "dynamic", "ease", "economic", "edition", "efficient", "elements", "eliminate", "elite", "eloquent", "emerged", "emphasis", "emphasize", "empirical", "enable", "encountered", "endure", "energy", "enforcement", "enhance", "enhanced", "enormous", "ensure", "entities", "environment", "epitome", "equation", "equipment", "equivalent", "erosion", "erroneous", "error", "established", "estate", "estimate", "ethical", "ethnic", "evade", "evaluate", "evaluation", "eventually", "evidence", "evolution", "evolve", "exceed", "exclude", "excluded", "exclusive", "exemplary", "exhibit", "expand", "expansion", "expert", "expertise", "explicit", "exploit", "exploitation", "export", "expose", "exposure", "extension", "external", "extract", "facilitate", "factors", "famine", "feasible", "features", "federal", "fees", "file", "final", "financial", "finite", "flaw", "flexibility", "fluctuate", "fluctuations", "focus", "format", "formula", "forthcoming", "fortify", "foundation", "founded", "framework", "frivolous", "function", "fundamental", "funds", "furthermore", "gap", "garbled", "gender", "generate", "generated", "generation", "global", "goals", "grade", "grandiose", "granted", "guarantee", "guidelines", "hackneyed", "haphazard", "harsh", "hasty", "hazardous", "hence", "hesitate", "hierarchical", "hierarchy", "highlighted", "hindrance", "hollow", "horror", "hostile", "hypothesis", "identical", "identified", "ideology", "ignored", "illiterate", "illustrate", "illustrated", "image", "immigration", "impact", "impair", "implement", "implementation", "implications", "implicit", "implies", "imply", "impose", "imposed", "impoverish", "incentive", "incessant", "incidence", "incidental", "incite", "inclination", "inclined", "income", "incompatible", "incompetent", "inconsistent", "incorporated", "indefatigable", "index", "indicate", "indisputable", "individual", "induced", "ineffective", "inevitable", "inevitably", "infer", "inferred", "inflate", "influence", "infrastructure", "inherent", "inhibit", "inhibition", "initial", "initiatives", "injury", "innovation", "input", "inquiry", "insert", "insights", "inspection", "instance", "institute", "instructions", "integral", "integrate", "integration", "integrity", "intelligence", "intensity", "interaction", "intermediate", "internal", "interpret", "interpretation", "interval", "intervene", "intervention", "intrepid", "intricate", "intrinsic", "invasive", "investigate", "investigation", "investment", "invoked", "involved", "irascible", "irony", "irresolute", "isolated", "issues", "items", "jargon", "job", "jointly", "journal", "justification", "knack", "label", "labor", "labour", "lag", "lampoon", "languish", "layer", "lecture", "leery", "legal", "legislation", "legitimate", "lenient", "levy", "liberal", "licence", "likely", "likewise", "link", "location", "logic", "ludicrous", "maintain", "maintenance", "major", "manipulate", "manipulation", "manual", "marginal", "mature", "maximize", "maximum", "measure", "mechanism", "media", "mediation", "medical", "mediocre", "medium", "mend", "mental", "method", "migrate", "migration", "military", "minimal", "minimised", "minimum", "ministry", "minorities", "misleading", "mode", "modified", "modify", "monitoring", "morose", "motivation", "mutual", "negative", "negligent", "network", "neutral", "nevertheless", "nonchalant", "nonetheless", "normal", "norms", "notion", "notwithstanding", "nuclear", "obey", "objective", "obtain", "obtained", "obvious", "occupational", "occur", "odd", "offset", "ongoing", "opponent", "oppress", "option", "orientation", "origin", "outcomes", "output", "overall", "overlap", "overseas", "panel", "paradigm", "paragraph", "parallel", "parameters", "parsimonious", "partake", "partial", "participation", "partnership", "passive", "paucity", "peak", "perceived", "percent", "period", "peripheral", "permeate", "persist", "persistent", "perspective", "pertain", "phase", "phenomenon", "philosophy", "physical", "plus", "policy", "poll", "portion", "posed", "positive", "potent", "potential", "practitioners", "pragmatic", "praise", "precede", "preceding", "precise", "predicted", "predominantly", "preliminary", "prestigious", "presumption", "prevalent", "previous", "primary", "prime", "principal", "principle", "prior", "priority", "procedure", "proceed", "process", "professional", "progeny", "prohibited", "project", "promote", "proportion", "prospect", "prosper", "protocol", "proximity", "psychology", "publication", "published", "purchase", "pursue", "qualitative", "quarrel", "quotation", "radical", "random", "range", "rank", "ratio", "rational", "reaction", "rebuke", "recapitulate", "recede", "recommend", "recovery", "refine", "reform", "regime", "region", "registered", "regulate", "regulations", "reinforce", "reinforced", "reject", "rejected", "relaxed", "release", "relevant", "reliance", "reluctant", "rely", "removed", "reproach", "require", "required", "research", "resent", "resident", "resign", "resist", "resolution", "resolve", "resources", "response", "restore", "restraints", "restrict", "restricted", "retain", "retained", "retract", "retrieve", "revealed", "revenue", "reverse", "revision", "revolution", "rhetorical", "rigid", "role", "rotate", "route", "safeguard", "scenario", "schedule", "scheme", "scope", "scrutinize", "section", "sector", "security", "select", "sequence", "series", "severe", "sex", "shallow", "shelter", "shift", "shrink", "significant", "similar", "simulation", "site", "so-called", "solely", "solitary", "somber", "somewhat", "soothe", "sought", "source", "sparse", "specific", "specified", "specify", "speculate", "sphere", "squalid", "stability", "stable", "stagnant", "statistics", "status", "straightforward", "strategies", "strategy", "stress", "structure", "styles", "submitted", "subordinate", "subsequent", "subsidiary", "substitute", "substitution", "subtle", "successive", "sufficient", "sum", "summarize", "summary", "supervise", "supplant", "supplementary", "survey", "survive", "suspend", "suspended", "suspicious", "sustain", "sustainable", "symbolic", "tapes", "target", "task", "team", "technical", "techniques", "technology", "temporary", "tension", "terminal", "termination", "text", "theme", "theory", "thereby", "thesis", "tolerate", "topic", "trace", "traditional", "transfer", "transformation", "transition", "transmission", "transparent", "transport", "trend", "trigger", "tuition", "ultimately", "undergo", "underlying", "undertaken", "unified", "uniform", "unique", "unjust", "unobtrusive", "unscathed", "upbeat", "utility", "vacillate", "valid", "validity", "vanish", "variables", "vary", "vehicle", "verdict", "version", "vestige", "via", "vial", "vilify", "violation", "virtually", "visible", "vision", "visual", "volume", "voluminous", "voluntary", "welfare", "whereas", "whereby", "wholly", "widespread", "wilt"];
 
 DATA.notes = [
   { title: "Is multitasking a myth?", lines: [{ s: 1, name: "Professor", t: "Okay, so today I want to talk about multitasking. A lot of you probably think you're good at it. You study with music on, check your phone, maybe keep a video running in the background. And honestly, I used to believe I could do it too. But the research here is pretty clear, and frankly, it's not good news. What we call multitasking is usually task switching. The brain moves attention back and forth very quickly, and every switch has a cost. Psychologists call it a switch cost: a small delay and a drop in accuracy each time you change tasks. Those small costs add up. In several studies, people who switched between tasks took noticeably longer and made more errors than people who did the same tasks one after another. Now, some people claim they're the exception, that they're natural multitaskers. I'm skeptical. In one well-known study, the people who multitasked the most actually did worse on tests of attention than light multitaskers. In other words, confidence isn't the same as ability. So what's my advice? Put the phone in another room when you study. It sounds simple, maybe even a little old-fashioned, but it works." }],

@@ -100,6 +100,11 @@ details.settings summary{ cursor:pointer; font-family:var(--mono); font-size:12.
 .ctw-in{ font-family:var(--mono); font-size:16px; padding:1px 3px; border:none; border-bottom:2px solid var(--pine); background:var(--hl); color:var(--ink); border-radius:2px 2px 0 0; letter-spacing:0.08em; }
 .ctw-in.ok{ border-color:var(--green); color:var(--green); }
 .ctw-in.bad{ border-color:var(--red); color:var(--red); text-decoration:line-through; }
+.ctw-boxes{ display:inline-flex; gap:2px; margin-left:1px; vertical-align:baseline; }
+.ctw-box{ width:1.35em; height:1.7em; padding:0; text-align:center; font-family:var(--mono); font-size:16px; border:none; border-bottom:2px solid var(--pine); background:var(--hl); color:var(--ink); border-radius:3px 3px 0 0; caret-color:var(--pine); }
+.ctw-box:focus-visible{ outline:2px solid var(--gold); outline-offset:1px; }
+.ctw-box.ok{ border-color:var(--green); color:var(--green); }
+.ctw-box.bad{ border-color:var(--red); color:var(--red); }
 .fix{ font-family:var(--mono); font-size:12px; color:var(--green); margin-left:2px; }
 .doc{ border:1px solid var(--rule); border-left:4px solid var(--gold); background:var(--paper); padding:16px 18px; border-radius:4px; white-space:pre-wrap; font-size:15.5px; margin-bottom:22px; }
 .doc .kind{ font-family:var(--type); font-size:12px; color:var(--muted); display:block; margin-bottom:6px; white-space:normal; }
@@ -250,6 +255,7 @@ body.sheet-open{ overflow:hidden; }
   .task-row{ padding:14px; min-height:64px; }
   .check input{ width:22px; height:22px; }
   .ctw-in, .gap-in{ font-size:17px; padding:4px 5px; }
+  .ctw-box{ font-size:18px; width:1.45em; height:1.9em; }
   .tsel, .voice-grid select, .field-in{ font-size:16px; min-height:44px; }
   textarea.write, .pad-ta{ font-size:16px; }
   .passage{ max-height:none; overflow:visible; }

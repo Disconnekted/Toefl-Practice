@@ -447,8 +447,8 @@ Object.assign(TASKS, {
   trans: { section: 'Reading strategies', name: 'Signal words', blurb: 'Choose transitions and predict what comes next.', how: 'Pick the signal word that fits each gap, then predict where the writer is going next. Signal words show how ideas connect, so you can follow the logic without reading every word slowly.', render: renderTrans,
     gen: 'An academic paragraph of 90-120 words with exactly 4 or 5 gaps written as [[function:Correct|Wrong1|Wrong2|Wrong3]] where function is one of contrast, concession, cause, result, example, addition, time. The correct transition comes FIRST; the 3 wrong ones are from other functions and clearly do not fit grammatically or logically. Also "predict": 2 questions, each quoting a sentence that ends with a transition (e.g. "However, …") and asking what most likely comes next, with 4 options, "answer" index, and "why".',
     ok: it => typeof it.text === 'string' && (it.text.match(/\[\[[a-z ]+:[^\]]+\]\]/g) || []).length >= 3 && isMcq(it.predict) },
-  vic: { section: 'Reading strategies', name: 'Vocabulary in context', blurb: 'Work out unfamiliar words from clues around them.', how: 'Each sentence contains a word you may not know. Guess its meaning, then name the clue that helped. You\'ll see the clue highlighted after you check.', render: renderVic,
-    gen: 'A set of 5 items. Each "text" is one or two academic sentences containing exactly one uncommon word (above TOEFL level, so the reader must infer it) wrapped in {{double braces}}, and the context clue phrase wrapped in [[double brackets]]. Give 4 meaning "options", "answer" index, "clue" (exactly one of: definition, synonym, contrast, example, general sense; use at least 4 different types across the set), and "why" explaining how the clue reveals the meaning.',
+  vic: { section: 'Reading strategies', name: 'Vocabulary in context', blurb: 'Work out unfamiliar words from clues around them.', how: 'Each sentence contains a word from your TOEFL word lists (the PrepScholar 327 list and the Academic Word List). Guess its meaning, then name the clue that helped. You\'ll see the clue highlighted after you check.', render: renderVic,
+    genBase: 'Each "text" is one or two academic sentences containing the target word (any natural form of it) wrapped in {{double braces}}, and the context clue phrase wrapped in [[double brackets]]. Give 4 meaning "options", "answer" index, "clue" (exactly one of: definition, synonym, contrast, example, general sense; use at least 4 different types across the set), and "why" explaining how the clue reveals the meaning.',
     ok: it => Array.isArray(it.items) && it.items.length >= 3 && it.items.every(x => /\{\{.+?\}\}/.test(x.text) && Array.isArray(x.options) && Number.isInteger(x.answer) && CLUES.includes(x.clue)) }
 });
 Object.assign(TASKS, {
@@ -463,6 +463,12 @@ Object.assign(TASKS, {
     ok: it => isLines(it.lines) && isMcq(it.questions) && Array.isArray(it.attitude) },
   byo: { section: 'Listening strategies', name: 'Notes on your own podcast', blurb: 'Take notes on any real lecture or podcast, then check them.', how: 'Practice with real speakers and real tone of voice. Listen once to any lecture or podcast, take shorthand notes here, and summarize the main idea and attitude from your notes. With a transcript, Claude can quiz you and review your notes.', render: renderByo, noSets: true }
 });
+// New vocabulary sets pick 5 words from the word lists that no set has used yet.
+Object.defineProperty(TASKS.vic, 'gen', { get() {
+  const seen = new Set(pool('vic').flatMap(s => (s.items || []).map(x => ((x.text.match(/\{\{(.+?)\}\}/) || [])[1] || '').toLowerCase())));
+  const fresh = shuffle((DATA.vicWords || []).filter(w => !seen.has(w))).slice(0, 5);
+  return `A set of 5 items using exactly these target words, one per item: ${fresh.join(', ')}. ` + this.genBase;
+} });
 const SECTIONS = [
   { name: 'Reading', meta: 'about 30 min, adaptive', tasks: ['ctw', 'daily', 'academic'] },
   { name: 'Reading strategies', meta: 'skill drills', tasks: ['skim', 'trans', 'vic'] },
@@ -498,7 +504,7 @@ const KO_HOW = {
   academic: '지문을 읽고 어휘, 세부 정보, 사실이 아닌 것 찾기, 글쓴이의 의도, 추론 문제에 답하세요.',
   skim: '제목과 각 단락의 핵심 문장을 짧은 시간 동안만 볼 수 있습니다. 지문이 사라진 뒤 중심 내용과 정보가 어디에 있는지에 관한 질문에 답하세요.',
   trans: '각 빈칸에 알맞은 연결어를 고른 뒤, 글쓴이가 다음에 무슨 말을 할지 예측하세요. 연결어는 생각이 어떻게 이어지는지 보여 주므로 모든 단어를 천천히 읽지 않아도 논리를 따라갈 수 있습니다.',
-  vic: '각 문장에는 모를 수도 있는 단어가 하나 있습니다. 뜻을 추측한 다음, 도움이 된 단서의 종류를 고르세요. 확인하면 단서가 표시됩니다.',
+  vic: '각 문장에는 단어 목록(PrepScholar 327 단어와 Academic Word List)에 있는 단어가 하나 있습니다. 뜻을 추측한 다음, 도움이 된 단서의 종류를 고르세요. 확인하면 단서가 표시됩니다.',
   respond: '각 문장을 듣고 가장 자연스러운 대답을 고르세요. 질문의 단어를 반복하지만 실제로는 답이 되지 않는 선택지에 주의하세요.',
   convo: '대화 전체를 (글을 보지 않고) 들은 뒤 질문에 답하세요. 정답을 확인하면 대본이 나타납니다.',
   announce: '안내 방송을 듣고 목적과 핵심 세부 정보에 관한 질문에 답하세요.',
@@ -909,27 +915,43 @@ function afterCheck(body, id, extraHtml = '') {
 
 // ---------- Reading ----------
 function renderCTW(item, body, id) {
+  // One box per missing letter, like the real test. Each box holds exactly
+  // one letter, so phone keyboards can't type past the word's length.
   const blanks = [];
   const html = esc(item.text).replace(/\[([A-Za-z']+)\]/g, (m, w) => {
     const k = Math.max(1, Math.floor(w.length / 2));
     const shown = w.slice(0, k), miss = w.slice(k);
     const i = blanks.length; blanks.push(miss);
-    return `<span class="ctw-word">${shown}<input class="ctw-in" data-i="${i}" maxlength="${miss.length}" style="width:calc(${miss.length}ch + 12px)" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Missing ${miss.length} letter${miss.length > 1 ? 's' : ''}"></span>`;
+    const boxes = [...miss].map((_, j) => `<input class="ctw-box" data-w="${i}" data-j="${j}" maxlength="1" inputmode="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Word ${i + 1}, letter ${k + j + 1}">`).join('');
+    return `<span class="ctw-word" data-word="${i}">${shown}<span class="ctw-boxes">${boxes}</span></span>`;
   });
   body.innerHTML = `<div class="ctw">${html}</div>${checkRow()}`;
-  const ins = $$('.ctw-in', body);
-  ins.forEach((inp, i) => {
-    const adv = e => { if (e && e.isComposing) return; if (inp.value.length > +inp.maxLength) inp.value = inp.value.slice(0, +inp.maxLength); if (inp.value.length >= +inp.maxLength && ins[i + 1]) ins[i + 1].focus(); };
-    inp.addEventListener('input', adv); inp.addEventListener('compositionend', () => adv());
-    inp.addEventListener('keydown', e => { if (e.key === 'Enter' && ins[i + 1]) { e.preventDefault(); ins[i + 1].focus(); } });
+  const boxes = $$('.ctw-box', body);
+  const letters = v => (v || '').replace(/[^A-Za-z']/g, '');
+  boxes.forEach((bx, n) => {
+    bx.addEventListener('input', () => {
+      const v = letters(bx.value);
+      // Android keyboards can deliver several letters at once: spread them
+      // across the following boxes instead of overflowing this one.
+      bx.value = v.slice(0, 1);
+      let k = n;
+      for (const ch of v.slice(1)) { if (!boxes[k + 1] || boxes[k + 1].dataset.w !== bx.dataset.w) break; k++; boxes[k].value = ch; }
+      if (v && boxes[k + 1]) boxes[k + 1].focus(); else if (v) bx.blur();
+    });
+    bx.addEventListener('keydown', e => {
+      if (e.key === 'Backspace' && !bx.value && boxes[n - 1]) { e.preventDefault(); boxes[n - 1].value = ''; boxes[n - 1].focus(); }
+      else if (e.key === 'ArrowLeft' && boxes[n - 1]) { e.preventDefault(); boxes[n - 1].focus(); }
+      else if ((e.key === 'ArrowRight' || e.key === 'Enter') && boxes[n + 1]) { e.preventDefault(); boxes[n + 1].focus(); }
+    });
+    bx.addEventListener('focus', () => { try { bx.select(); } catch (e) { } });
   });
+  const ins = blanks.map((_, i) => ({ get value() { return $$(`.ctw-box[data-w="${i}"]`, body).map(b => b.value).join(''); } }));
   $('[data-check]', body).addEventListener('click', e => {
     e.target.disabled = true; let right = 0;
     ins.forEach((inp, i) => {
-      inp.disabled = true;
-      const ok = inp.value.trim().toLowerCase() === blanks[i].toLowerCase();
-      inp.classList.add(ok ? 'ok' : 'bad'); if (ok) right++;
-      else inp.insertAdjacentHTML('afterend', `<span class="fix">${esc(blanks[i])}</span>`);
+      const ok = inp.value.toLowerCase() === blanks[i].toLowerCase(); if (ok) right++;
+      $$(`.ctw-box[data-w="${i}"]`, body).forEach(b => { b.disabled = true; b.classList.add(ok ? 'ok' : 'bad'); });
+      if (!ok) $(`.ctw-word[data-word="${i}"]`, body).insertAdjacentHTML('beforeend', `<span class="fix">${esc(blanks[i])}</span>`);
     });
     record(id, right, blanks.length);
     $('[data-result]', body).innerHTML = stampHtml(right, blanks.length);
