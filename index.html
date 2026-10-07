@@ -335,6 +335,21 @@ body.in-sub .tabbar{ display:none; }
 .w-feedback{ text-align:center; margin-top:16px; }
 .pbar.static{ margin-bottom:6px; }
 .pbar.static i{ transition:none; }
+.tmpl{ border:1px solid var(--gold); border-radius:6px; padding:10px 14px; margin-bottom:14px; background:var(--paper); }
+.tmpl summary{ cursor:pointer; font-family:var(--mono); font-size:13px; color:var(--pine); }
+.tmpl-steps{ margin:10px 0; padding-left:22px; font-size:14.5px; }
+.tmpl-steps li{ margin-bottom:6px; }
+.tmpl-steps span, .tmpl-phrases{ color:var(--muted); font-size:14px; }
+.tmpl-phrases div{ margin-bottom:4px; }
+.tmpl-tips{ margin:4px 0 0; padding-left:20px; font-size:14px; }
+.test-bar{ position:sticky; top:calc(var(--hdr-h, 46px) + env(safe-area-inset-top,0px)); z-index:25; display:flex; justify-content:space-between; align-items:center; gap:10px; padding:8px 10px; margin:-6px -8px 14px; background:var(--card); border-bottom:1px solid var(--rule); font-size:14px; }
+.test-bar #testLeft{ color:var(--muted); font-size:13px; }
+body.in-test #settingsBtn{ display:none; }
+.ctw-chips{ display:flex; flex-wrap:wrap; gap:6px; margin:8px 0; }
+.ctw-chips .chip{ cursor:default; font-size:13.5px; }
+details.test-review{ border:1px solid var(--rule); border-radius:6px; padding:10px 14px; margin-bottom:10px; }
+details.test-review summary{ cursor:pointer; }
+details.test-review .badge{ margin-left:6px; }
 .toast{ position:fixed; bottom:calc(84px + env(safe-area-inset-bottom,0px)); left:50%; transform:translateX(-50%); background:var(--ink); color:var(--card); padding:10px 16px; border-radius:6px; font-family:var(--mono); font-size:13px; max-width:90vw; z-index:100; text-align:center; }
 </style>
 </head>

@@ -84,6 +84,9 @@ If the model name ever stops working, update it in the same settings section.
   Reading and Listening also contain strategy and note-taking drills.
 - **Home:** continue your last task, try the suggested next task (your weakest
   or untried one), and see each skill's average.
+- **Practice tests:** at the top of the Reading and Listening tabs. A full
+  timed section in test order, with an estimated band and explanations at the end.
+- **Answer templates (📝):** above the email, discussion, and interview tasks.
 - **Progress (📈 on Home):** recent scores for every task, plus how often you
   practiced this week.
 - **Settings (⚙️ in the header):** text size, Korean instructions, audio
