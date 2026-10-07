@@ -619,7 +619,8 @@ function dailyCardHtml() {
   return `<button class="home-card primary" id="dailyBtn">
       <span class="hc-kicker">Daily 15${st ? ` · 🔥 ${st}-day streak` : ''}</span>
       <span class="hc-title">${live ? `Continue: step ${DAILY.i + 1} of ${DAILY.steps.length}` : doneToday ? 'Done for today ✓ · Start another mix' : 'Start today\'s 15-minute mix'}</span>
-      <span class="hc-sub">Words, reading, listening, writing, and speaking, picked from your weakest areas.</span></button>
+      <span class="hc-sub">Words, mistakes, reading, listening, writing, and speaking, picked from your weakest areas.</span></button>
+    ${dueMistakes().length ? `<button class="home-card" id="mistakesDue"><span class="hc-kicker">Mistake review</span><span class="hc-title">${dueMistakes().length} missed question${dueMistakes().length > 1 ? 's' : ''} to review</span><span class="hc-sub">Questions you got wrong come back after 1, 3, and 7 days.</span></button>` : ''}
     ${due ? `<button class="home-card" id="wordsDue"><span class="hc-kicker">Words</span><span class="hc-title">${due} word${due > 1 ? 's' : ''} due for review</span><span class="hc-sub">Academic Word List</span></button>` : ''}`;
 }
 function renderHomeTab() {
@@ -652,6 +653,7 @@ function renderHomeTab() {
   if (lastOk) $('#contBtn').addEventListener('click', () => go(() => openTask(last.id, last.idx)));
   $('#dailyBtn').addEventListener('click', () => go(() => (DAILY && !DAILY.finished) ? runDailyStep() : startDaily()));
   const wb = $('#wordsDue'); if (wb) wb.addEventListener('click', () => go(() => renderTab('words')));
+  const mb = $('#mistakesDue'); if (mb) mb.addEventListener('click', () => go(() => runMistakes(shuffle(dueMistakes()).slice(0, 10))));
   $('#sugBtn').addEventListener('click', () => go(() => openTask(sug.id)));
   $('#progBtn').addEventListener('click', () => go(renderProgress));
   $$('[data-goto]').forEach(b => b.addEventListener('click', () => go(() => renderTab(b.dataset.goto))));
@@ -679,6 +681,8 @@ function renderProgress() {
       <div class="stat"><b>${thisWeek}</b><span>sets this week</span></div>
       <div class="stat"><b>${days}</b><span>days practiced in the last 30</span></div>
     </div>
+    ${(() => { const all = Object.keys(MISTAKES).length, d = dueMistakes().length; return all ? `<div class="notice info" style="margin:0 0 12px; display:flex; justify-content:space-between; align-items:center; gap:10px;"><span>${all} question${all > 1 ? 's' : ''} in mistake review${d ? `, ${d} due now` : ''}.</span>${d ? '<button class="btn small" id="progMist">Review</button>' : ''}</div>` : ''; })()}
+    ${(() => { const lb = store.get('toefl26-lastbackup', null); const studied = store.get('toefl26-days', []).length; return studied >= 3 && (!lb || (Date.now() - new Date(lb).getTime()) > 30 * 864e5) ? '<p class="hint">💾 Tip: save a backup of your progress in Settings.</p>' : ''; })()}
     <p class="hint">Each line shows your last 12 scores for a task. The dotted line marks 80%.</p>
     ${SKILL_TABS.map(t => `
       <section class="sec"><div class="sec-head"><h2>${t.label}</h2></div>
@@ -694,6 +698,7 @@ function renderProgress() {
         </button>`;
       }).join('')}</section>`).join('')}`;
   $$('.prog-row[data-task]').forEach(b => b.addEventListener('click', () => go(() => openAny(b.dataset.task))));
+  const pm = $('#progMist'); if (pm) pm.addEventListener('click', () => go(() => runMistakes(shuffle(dueMistakes()).slice(0, 10))));
 }
 
 // ---------- Settings screen ----------
@@ -732,6 +737,11 @@ function renderSettings() {
         <p class="hint" id="keyOut" style="margin:6px 0 0;">${sample ? 'Claude features are on.' : 'Claude features are off.'}</p>
         <label class="check" style="margin-top:8px;"><input type="checkbox" id="korBox" ${SETTINGS.korean ? 'checked' : ''}><span>Add short Korean notes to Claude's feedback.</span></label>
       </div>
+      <div><span class="lbl">Backup and restore</span>
+        <p class="hint" style="margin:0 0 8px;">Your progress is stored only on this device. Save a backup file before changing phones or clearing browser data. Your API key is never included. Last backup: ${store.get('toefl26-lastbackup', null) || 'never'}.</p>
+        <div class="row"><button class="btn small" id="exportBtn">⬇ Save backup</button><button class="btn ghost small" id="importBtn">⬆ Restore from file</button><input type="file" id="importFile" accept="application/json,.json" hidden></div>
+        <p class="hint" id="backupOut" style="margin:6px 0 0;"></p>
+      </div>
       <div class="row"><button class="btn ghost small" id="welcomeBtn">Show the welcome guide</button><button class="btn ghost small" id="resetBtn">Clear my progress</button></div>
       <p class="hint" style="margin:0;">Speech-to-text in the speaking tasks needs an internet connection and works best in Chrome. Your progress is saved on this device.</p>
     </div>`;
@@ -759,9 +769,12 @@ function renderSettings() {
     { s: 1, t: "I wasn't sure whether the summary should include my own opinion." },
     { s: 0, t: "Good question. Keep the summary neutral, then add your opinion in a separate paragraph at the end." }]));
   $('#welcomeBtn').addEventListener('click', () => showWelcome());
+  $('#exportBtn').addEventListener('click', () => exportBackup($('#backupOut')));
+  $('#importBtn').addEventListener('click', () => $('#importFile').click());
+  $('#importFile').addEventListener('change', e => { const f = e.target.files[0]; if (f) importBackup(f, $('#backupOut')); e.target.value = ''; });
   $('#resetBtn').addEventListener('click', e => {
     if (!e.target.dataset.armed) { e.target.dataset.armed = '1'; e.target.textContent = 'Tap again to clear all scores'; return; }
-    STATS = {}; CURSOR = {}; HIST = {}; TEST_USED = {}; store.set('toefl26-testused', {}); SRS = {}; DAILY = null; saveSRS(); saveDaily(); store.set('toefl26-days', []);
+    STATS = {}; CURSOR = {}; HIST = {}; MISTAKES = {}; saveMistakes(); TEST_USED = {}; store.set('toefl26-testused', {}); SRS = {}; DAILY = null; saveSRS(); saveDaily(); store.set('toefl26-days', []);
     store.set('toefl26-stats', STATS); store.set('toefl26-cursor', CURSOR); store.set('toefl26-hist', HIST); store.set('toefl26-last', null);
     e.target.textContent = 'Progress cleared'; e.target.disabled = true;
   });
@@ -893,14 +906,27 @@ function mcqHtml(qs, pfx, startNum = 1) {
       ${q.options.map((o, j) => `<label class="opt"><input type="radio" name="${pfx}-${i}" value="${j}"><span>${esc(o)}</span></label>`).join('')}
     </fieldset>`).join('');
 }
-function gradeMcq(qs, pfx, root) {
+// track (optional): { task, item, qi(i) } records results for mistake review
+// and adds an "Ask Claude why" button to missed questions.
+function gradeMcq(qs, pfx, root, track) {
   let right = 0;
   qs.forEach((q, i) => {
     const chosen = $(`input[name="${pfx}-${i}"]:checked`, root);
     const labels = $$(`input[name="${pfx}-${i}"]`, root).map(x => x.closest('label'));
     labels.forEach((l, j) => { $('input', l).disabled = true; if (j === q.answer) l.classList.add('right'); });
-    if (chosen) { const v = +chosen.value; if (v === q.answer) right++; else labels[v].classList.add('wrong'); }
-    if (q.why && labels.length) { const fs = labels[0].closest('fieldset'); if (fs && !fs.querySelector('.why')) fs.insertAdjacentHTML('beforeend', `<div class="why">${esc(q.why)}</div>`); }
+    let ok = false;
+    if (chosen) { const v = +chosen.value; if (v === q.answer) { right++; ok = true; } else labels[v].classList.add('wrong'); }
+    const fs = labels.length ? labels[0].closest('fieldset') : null;
+    if (q.why && fs && !fs.querySelector('.why')) fs.insertAdjacentHTML('beforeend', `<div class="why">${esc(q.why)}</div>`);
+    if (track) {
+      const qi = track.qi ? track.qi(i) : i;
+      noteResult(track.task, track.item, qi, ok);
+      if (!ok && fs && !fs.querySelector('[data-ask]')) {
+        const extra = track.task === 'respond' ? track.item.items[qi].say : track.task === 'vic' ? track.item.items[qi].text.replace(/\{\{|\}\}|\[\[|\]\]/g, '') : '';
+        const rq = reviewQuestion(track.task, track.item, qi) || q;
+        fs.insertAdjacentHTML('beforeend', `<div class="row ask-row">${askBtnHtml(explainPrompt(track.task, track.item, rq, chosen ? q.options[+chosen.value] : '', extra), 'Ask Claude why ↗', 'btn ghost small')}</div>`);
+      }
+    }
   });
   return right;
 }
@@ -1000,7 +1026,7 @@ function renderDaily(item, body, id) {
   body.innerHTML = `<div class="split"><div class="split-left"><div class="doc" tabindex="0"><span class="kind">${esc(item.kind || 'Text')}</span>${esc(item.text)}</div></div>
     <div class="split-right">${mcqHtml(item.questions, 'd')}${checkRow()}</div></div>`;
   $('[data-check]', body).addEventListener('click', e => {
-    e.target.disabled = true; const r = gradeMcq(item.questions, 'd', body);
+    e.target.disabled = true; const r = gradeMcq(item.questions, 'd', body, { task: id, item });
     record(id, r, item.questions.length); $('[data-result]', body).innerHTML = stampHtml(r, item.questions.length); afterCheck(body, id);
   });
 }
@@ -1011,7 +1037,7 @@ function renderAcademic(item, body, id) {
     <div class="split-right">${mcqHtml(item.questions, 'a')}${checkRow('Check answers', '<button class="btn ghost" data-sheet>📄 Passage</button>')}</div></div>`;
   $('[data-sheet]', body).addEventListener('click', () => openSheet(item.title, passageHtml));
   $('[data-check]', body).addEventListener('click', e => {
-    e.target.disabled = true; const r = gradeMcq(item.questions, 'a', body);
+    e.target.disabled = true; const r = gradeMcq(item.questions, 'a', body, { task: id, item });
     record(id, r, item.questions.length); $('[data-result]', body).innerHTML = stampHtml(r, item.questions.length); afterCheck(body, id);
   });
 }
@@ -1048,7 +1074,7 @@ function renderSkim(item, body, id) {
     const q = $('#qzone', body);
     q.innerHTML = `<div class="notice info" style="margin:0 0 18px;">The passage is hidden now. Answer from your skim. Knowing where information is, without reading every word, is the skill you're building.</div>${mcqHtml(item.questions, 'sk')}${checkRow()}`;
     $('[data-check]', body).addEventListener('click', e => {
-      e.target.disabled = true; const r = gradeMcq(item.questions, 'sk', body);
+      e.target.disabled = true; const r = gradeMcq(item.questions, 'sk', body, { task: id, item });
       record(id, r, item.questions.length); $('[data-result]', body).innerHTML = stampHtml(r, item.questions.length);
       afterCheck(body, id, `<h3 style="text-align:left; margin:22px 0 6px;">The full passage</h3>
         <p class="hint" style="text-align:left; margin:0 0 8px;"><mark class="ts">Highlighted</mark> sentences are what you skimmed. <span class="tw">Underlined</span> words are signal words.</p>
@@ -1098,7 +1124,7 @@ function renderTrans(item, body, id) {
       const f = $(`[data-f="${i}"]`, body); f.hidden = false;
       f.textContent = ok ? ` ${b.func}` : ` → ${b.correct} (${b.func})`;
     });
-    r += gradeMcq(item.predict, 'pr', body);
+    r += gradeMcq(item.predict, 'pr', body, { task: id, item });
     const tot = blanks.length + item.predict.length;
     record(id, r, tot); $('[data-result]', body).innerHTML = stampHtml(r, tot); afterCheck(body, id);
   });
@@ -1123,7 +1149,7 @@ function renderVic(item, body, id) {
     e.target.disabled = true; let r = 0;
     item.items.forEach((it, i) => {
       const wrap = $(`[data-vi="${i}"]`, body);
-      r += gradeMcq([{ q: '', options: it.options, answer: it.answer }], 'vm' + i, wrap);
+      r += gradeMcq([{ q: '', options: it.options, answer: it.answer }], 'vm' + i, wrap, { task: id, item, qi: () => i });
       const chosen = $(`input[name="vc${i}"]:checked`, wrap);
       $$(`input[name="vc${i}"]`, wrap).forEach(x => {
         x.disabled = true; const l = x.closest('label');
@@ -1199,7 +1225,7 @@ function renderNotes(item, body, id) {
     if ($('#qs', body)) return;
     $('#qzone', body).innerHTML = `<div id="qs"><h3 style="margin:22px 0 4px;">Answer using only your notes</h3><p class="hint" style="margin-top:0;">The talk won't play again, just like the real test.</p>${mcqHtml(item.questions, 'nt')}${checkRow()}</div>`;
     $('[data-check]', body).addEventListener('click', e => {
-      e.target.disabled = true; const r = gradeMcq(item.questions, 'nt', body);
+      e.target.disabled = true; const r = gradeMcq(item.questions, 'nt', body, { task: id, item });
       record(id, r, item.questions.length); $('[data-result]', body).innerHTML = stampHtml(r, item.questions.length);
       afterCheck(body, id, `
         <div style="text-align:left;">
@@ -1405,7 +1431,7 @@ function retellHtml() {
     ${templateHtml('retell')}
     <div class="write-bar"><button class="btn" data-rt-start>${SR ? '🎙 Start speaking' : 'Start the 60-second timer'}</button><span class="timer" data-rt-tm></span></div>
     <textarea class="write" data-rt-ta style="min-height:110px;" placeholder="${SR ? 'Your words appear here as you speak. You can also type.' : 'Say it out loud, or type your retelling here.'}"></textarea>
-    <div class="row" style="margin-top:8px;"><button class="btn ai-only" data-rt-fb>Score my retelling with Claude</button></div>
+    <div class="row" style="margin-top:8px;"><button class="btn ai-only" data-rt-fb>Score my retelling with Claude</button><button class="btn ghost" data-rt-ask>Score in Claude ↗</button></div>
     <div data-rt-out></div>
   </div>`;
 }
@@ -1420,6 +1446,20 @@ function wireRetell(root, transcript, notesText) {
     start.disabled = true; timer.start();
     if (srAvailable()) rec = listen({ onText: t => { ta.value = t; }, onEnd: () => { }, onBlocked: () => { ta.placeholder = 'The microphone is blocked here. Type your retelling instead.'; ta.focus(); } });
     else ta.focus();
+  });
+  $('[data-rt-ask]', root).addEventListener('click', e => {
+    stopRec(); timer.stop();
+    const text = ta.value.trim();
+    if (wordCount(text) < 15) { out.innerHTML = '<div class="notice err">Retell the talk first, with at least a few sentences.</div>'; return; }
+    askClaude(`You are a TOEFL coach. I listened ONCE to a short talk, took notes, and then retold it from my notes in about 60 seconds. My retelling may come from speech-to-text, so ignore recognition glitches. Score it 0 to 5 (half points allowed) on accuracy and completeness (topic, main points, a key example, the speaker's view), organization, and clarity.
+
+TALK TRANSCRIPT
+${transcript.slice(0, 8000)}
+${notesText ? `\nMY NOTES\n${notesText.slice(0, 2000)}\n` : ''}
+MY RETELLING
+${text}
+
+Please give me my score, what I did well, what I missed or got wrong (and how better notes would have helped), and a model 90 to 110 word retelling.${koAsk()}`, e.target);
   });
   $('[data-rt-fb]', root).addEventListener('click', async e => {
     stopRec(); timer.stop();
@@ -1458,7 +1498,7 @@ function renderListen(item, body, id) {
   mountPlayer($('#pl', body), item.lines, { onFirstEnd: reveal });
   $('#showQ', body).addEventListener('click', reveal);
   $('[data-check]', body).addEventListener('click', e => {
-    e.target.disabled = true; const r = gradeMcq(item.questions, 'l', body);
+    e.target.disabled = true; const r = gradeMcq(item.questions, 'l', body, { task: id, item });
     record(id, r, item.questions.length); $('[data-result]', body).innerHTML = stampHtml(r, item.questions.length);
     afterCheck(body, id, transcriptHtml(item.lines));
   });
@@ -1473,7 +1513,7 @@ function renderRespond(item, body, id) {
   item.items.forEach((it, i) => mountPlayer($('#rp' + i, body), [{ s: i % 2, t: it.say }], { label: `▶ Play ${i + 1}` }));
   $('[data-check]', body).addEventListener('click', e => {
     e.target.disabled = true; let r = 0;
-    item.items.forEach((it, i) => { r += gradeMcq([{ q: '', options: it.options, answer: it.answer, why: it.why }], 'r' + i, body); $(`[data-ri="${i}"]`, body).classList.add('done'); });
+    item.items.forEach((it, i) => { r += gradeMcq([{ q: '', options: it.options, answer: it.answer, why: it.why }], 'r' + i, body, { task: id, item, qi: () => i }); $(`[data-ri="${i}"]`, body).classList.add('done'); });
     record(id, r, item.items.length); $('[data-result]', body).innerHTML = stampHtml(r, item.items.length); afterCheck(body, id);
   });
 }
@@ -1545,6 +1585,7 @@ function writingTask(body, id, item, promptHtml, taskDesc, minWords) {
     <div class="write-bar"><span id="wc">0 words</span><span>Target: ${minWords}+ words</span></div>
     <div class="row">
       <button class="btn ai-only" id="fbBtn">Score my writing with Claude</button>
+      <button class="btn ghost" id="askBtn">Score in Claude ↗</button>
       ${item.model ? '<button class="btn ghost" id="modelBtn">Show model answer</button>' : ''}
       <button class="btn ghost small" id="clearBtn">Clear</button>
     </div>
@@ -1557,6 +1598,12 @@ function writingTask(body, id, item, promptHtml, taskDesc, minWords) {
   upd();
   ta.addEventListener('input', () => { if (!timer.running) timer.start(); upd(); });
   $('#clearBtn', body).addEventListener('click', () => { ta.value = ''; upd(); });
+  $('#askBtn', body).addEventListener('click', e => {
+    const text = ta.value.trim();
+    if (wordCount(text) < 20) { out.innerHTML = '<div class="notice err">Write at least a few sentences first so Claude has something to score.</div>'; return; }
+    timer.stop(); countOnce();
+    askClaude(writingPrompt(TASKS[id].name, taskDesc, text), e.target);
+  });
   if (item.model) $('#modelBtn', body).addEventListener('click', e => {
     e.target.disabled = true; countOnce();
     out.insertAdjacentHTML('beforeend', `<div class="lbl" style="margin-top:16px;">Model answer (${wordCount(item.model)} words)</div><div class="model">${esc(item.model)}</div>`);
@@ -1722,7 +1769,18 @@ function renderInterview(item, body, id) {
     body.innerHTML = `<h2 style="margin-bottom:10px;">Your answers</h2>
       ${item.questions.map((qq, k) => `<div class="prompt-box"><b>${k + 1}. ${esc(qq)}</b><p style="margin:8px 0 0;">${answers[k] ? esc(answers[k]) : '<span class="hint">(no transcript)</span>'}</p>${answers[k] ? `<p class="hint" style="margin:6px 0 0;">${wordCount(answers[k])} words</p>` : ''}</div>`).join('')}
       <p class="hint">Strong answers usually run 80–120 words in 45 seconds, give a clear opinion, and add a reason or example.</p>
-      <div class="row"><button class="btn ai-only" id="fbBtn" ${any ? '' : 'disabled'}>Score my answers with Claude</button><button class="btn ghost" id="redo">Do it again</button></div>
+      <div class="row"><button class="btn ai-only" id="fbBtn" ${any ? '' : 'disabled'}>Score my answers with Claude</button>${any ? askBtnHtml(`You are an experienced, fair TOEFL iBT speaking rater. Below are my answers to the TOEFL iBT (2026 format) "Take an Interview" task. Each answer was spoken for about 45 seconds and turned into text by speech recognition, so ignore obvious transcription glitches and missing punctuation. Score me on the 0 to 5 scale (half points allowed).
+
+Context: ${item.intro}
+
+${item.questions.map((qq, k) => `Q${k + 1}: ${qq}\nMy answer (${wordCount(answers[k])} words): ${answers[k] || '(no answer)'}`).join('\n\n')}
+
+Please give me:
+1. My score and a one-sentence summary
+2. Two or three strengths
+3. Two or three specific improvements (say which question)
+4. More natural phrasing for awkward parts (what I said → better)
+5. A strong 90 to 110 word sample answer to the question where I was weakest${koAsk()}`) : ''}<button class="btn ghost" id="redo">Do it again</button></div>
       <div id="out"></div>`;
     $('#redo', body).addEventListener('click', () => go(() => openTask(id, current.idx)));
     recordAI(id, null);
@@ -1949,7 +2007,10 @@ function pickTask(ids) {
   return ids.map(id => ({ id, v: score(id) + Math.random() * 0.1 })).sort((a, b) => a.v - b.v)[0].id;
 }
 function startDaily() {
-  const steps = DAILY_SLOTS.map(sl => {
+  const md = dueMistakes().length;
+  const slots = md ? [DAILY_SLOTS[0], { label: 'Mistakes', kind: 'mistakes' }, ...DAILY_SLOTS.slice(1)] : DAILY_SLOTS;
+  const steps = slots.map(sl => {
+    if (sl.kind === 'mistakes') return { label: sl.label, kind: 'mistakes' };
     if (sl.kind === 'words') return { label: sl.label, kind: 'words' };
     const id = pickTask(sl.pick), n = pool(id).length;
     return { label: sl.label, kind: 'task', id, idx: ((CURSOR[id] || 0) + (STATS[id] && STATS[id].sets ? 1 : 0)) % n };
@@ -1966,7 +2027,10 @@ function runDailyStep() {
   enterSub();
   const st = DAILY.steps[DAILY.i];
   if (!st) return finishDaily();
-  if (st.kind === 'words') {
+  if (st.kind === 'mistakes') {
+    setHeader(dailyTitle(), true);
+    runMistakes(shuffle(dueMistakes()).slice(0, 5), { daily: true, onDone: (r, t) => { dailyResult(r, t); dailyContinueScreen(); } });
+  } else if (st.kind === 'words') {
     setHeader(dailyTitle(), true);
     runWords(dailyWordCards(), { daily: true, mode: 'def', onDone: (r, t) => { dailyResult(r, t); dailyContinueScreen(); } });
   } else openTask(st.id, st.idx, { daily: true });
@@ -2239,6 +2303,7 @@ function finishTest() {
   // Save: overall test result, each part toward its task's stats, sets used.
   graded.forEach(({ p, rows }) => {
     recordQuiet(p.task, rows.filter(r => r.ok).length, rows.length);
+    if (p.task !== 'ctw') rows.forEach((r, i) => noteResult(p.task, p.item, i, r.ok));
     const u = TEST_USED[p.task] = TEST_USED[p.task] || {}; u[p.idx] = (u[p.idx] || 0) + 1;
   });
   store.set('toefl26-testused', TEST_USED);
@@ -2267,7 +2332,8 @@ function finishTest() {
         ${rows.filter(x => !x.ctw).map(x => `<div class="corr">
           <div>${esc(x.q)}</div>
           ${x.ok ? `<span class="n">✓ ${esc(x.right)}</span>` : `<span class="o">${x.yours ? esc(x.yours) : '(no answer)'}</span> → <span class="n">${esc(x.right)}</span>`}
-          ${x.why ? `<div class="w">${esc(x.why)}</div>` : ''}</div>`).join('')}
+          ${x.why ? `<div class="w">${esc(x.why)}</div>` : ''}
+          ${x.ok ? '' : `<div class="ask-row">${askBtnHtml(explainPrompt(p.task, p.item, reviewQuestion(p.task, p.item, rows.indexOf(x)) || { q: x.q, right: x.right }, x.yours, p.task === 'respond' ? p.item.items[rows.indexOf(x)].say : ''), 'Ask Claude why ↗', 'btn ghost small')}</div>`}</div>`).join('')}
       </details>`;
     }).join('')}
     <div class="row" style="justify-content:center; margin-top:20px;"><button class="btn ghost" id="again">Take another test</button><button class="btn" id="back">Back to ${plan.section}</button></div>`;
@@ -2290,6 +2356,211 @@ function showConfirm(title, body, okLabel, onOk, cancelLabel = 'Stay') {
   $('[data-c=no]', ov).addEventListener('click', close);
   $('[data-c=ok]', ov).addEventListener('click', () => { close(); onOk(); });
   $('[data-c=no]', ov).focus();
+}
+
+// ---------- Ask Claude on claude.ai (no API key needed) ----------
+// Copies a ready-made prompt and opens claude.ai, prefilled where supported.
+// Uses the learner's own claude.ai subscription.
+const ASK = {}; let askSeq = 0;
+const koAsk = () => SETTINGS.korean ? '\nAdd short Korean explanations in parentheses where they help me understand.' : '';
+function askBtnHtml(prompt, label = 'Score in Claude ↗', cls = 'btn ghost') {
+  const k = 'a' + (++askSeq); ASK[k] = prompt;
+  return `<button class="${cls}" data-ask="${k}">${esc(label)}</button>`;
+}
+function askClaude(prompt, btn) {
+  let copied = null;
+  try { copied = navigator.clipboard && navigator.clipboard.writeText(prompt); } catch (e) { copied = null; }
+  const url = 'https://claude.ai/new' + (prompt.length < 6000 ? '?q=' + encodeURIComponent(prompt) : '');
+  try { window.open(url, '_blank', 'noopener'); } catch (e) { }
+  const host = btn.closest('.row') || btn.parentElement;
+  const note = document.createElement('div'); note.className = 'notice info ask-note';
+  const showFallback = () => {
+    note.innerHTML = `Copy this prompt, then paste it into a new chat on <b>claude.ai</b>:<textarea class="write" readonly style="min-height:120px; margin-top:8px; font-size:13px;"></textarea>`;
+    const ta = $('textarea', note); ta.value = prompt; ta.addEventListener('focus', () => ta.select());
+  };
+  $$('.ask-note', host.parentElement).forEach(n => n.remove());
+  host.insertAdjacentElement('afterend', note);
+  if (copied && copied.then) {
+    note.innerHTML = '<b>Copied.</b> claude.ai is opening. If the message box is empty, paste the prompt (long-press → Paste) and send.';
+    copied.catch(showFallback);
+  } else showFallback();
+}
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-ask]'); if (!b || !ASK[b.dataset.ask]) return;
+  askClaude(ASK[b.dataset.ask], b);
+});
+function writingPrompt(taskName, taskDesc, text) {
+  return `You are an experienced, fair TOEFL iBT writing rater. Score my response for the TOEFL iBT (2026 format) "${taskName}" task on the 0 to 5 rubric (half points allowed). Consider task completion, development, organization, vocabulary range, and grammatical accuracy. Be encouraging but honest.
+
+TASK
+${taskDesc}
+
+MY RESPONSE (${wordCount(text)} words)
+${text}
+
+Please give me:
+1. My score and a one-sentence summary
+2. Two or three strengths
+3. Two or three specific improvements
+4. Corrections of real errors (original → better, with a short reason)
+5. A revised version that keeps my ideas but fixes errors and improves flow${koAsk()}`;
+}
+function itemContext(task, item) {
+  if (!item) return '';
+  if (item.text && task !== 'trans' && task !== 'ctw') return item.text;
+  if (item.paras) return `${item.title}\n\n${item.paras.join('\n\n')}`;
+  if (item.lines) return item.lines.map(l => (item.lines.length > 1 ? `${l.name || 'Speaker'}: ` : '') + l.t).join('\n');
+  return '';
+}
+function explainPrompt(task, item, q, mine, extra = '') {
+  const ctx = (extra || itemContext(task, item)).slice(0, 5000);
+  const L = 'ABCD';
+  const opts = q.options ? q.options.map((o, i) => `${L[i]}. ${o}`).join('\n') : '';
+  return `I'm practicing for the TOEFL iBT (2026 format), task "${TASKS[task] ? TASKS[task].name : task}". I got this question wrong. Please explain in simple English why the correct answer is right and why my answer is wrong, then give me one tip for questions like this.${koAsk()}
+${ctx ? `\n${task === 'convo' || task === 'announce' || task === 'talk' || task === 'notes' || task === 'respond' ? 'TRANSCRIPT' : 'TEXT'}\n${ctx}\n` : ''}
+QUESTION
+${q.q || 'Choose the best answer.'}
+${opts ? `\nOPTIONS\n${opts}\n` : ''}
+MY ANSWER: ${mine || '(no answer)'}
+CORRECT ANSWER: ${q.options ? q.options[q.answer] : q.right}`;
+}
+
+// ---------- Mistake review ----------
+// Every missed question returns after 1 day, then 3, then 7. Each correct
+// review moves it to the next step; a miss starts it over. After three
+// correct reviews it's cleared.
+const MISTAKE_DAYS = { 1: 1, 2: 3, 3: 7 };
+let MISTAKES = store.get('toefl26-mistakes', {});
+const saveMistakes = () => store.set('toefl26-mistakes', MISTAKES);
+const REVIEWABLE = ['daily', 'academic', 'skim', 'trans', 'vic', 'respond', 'convo', 'announce', 'talk', 'notes'];
+function noteResult(task, item, qi, ok) {
+  if (!REVIEWABLE.includes(task) || !item || !item.title) return;
+  const key = `${task}|${item.title}|${qi}`, m = MISTAKES[key];
+  if (!ok) MISTAKES[key] = { task, title: item.title, qi, box: 1, due: addDays(1), n: (m ? m.n : 0) + 1 };
+  else if (m && m.due <= dayStr()) advanceMistake(key);
+  saveMistakes();
+}
+function advanceMistake(key) {
+  const m = MISTAKES[key]; if (!m) return;
+  m.box++;
+  if (m.box > 3) delete MISTAKES[key]; else m.due = addDays(MISTAKE_DAYS[m.box]);
+}
+function findMistake(m) {
+  const item = (pool(m.task) || []).find(x => x.title === m.title);
+  if (!item) return null;
+  const q = reviewQuestion(m.task, item, m.qi);
+  return q ? { item, q } : null;
+}
+function reviewQuestion(task, item, qi) {
+  if (task === 'respond') { const x = item.items[qi]; return x && { q: 'Choose the best response.', options: x.options, answer: x.answer, why: x.why }; }
+  if (task === 'vic') { const x = item.items[qi]; return x && { q: 'What does the bold word most likely mean?', options: x.options, answer: x.answer, why: x.why }; }
+  if (task === 'trans') return item.predict && item.predict[qi];
+  return item.questions && item.questions[qi];
+}
+function dueMistakes() {
+  const t = dayStr();
+  Object.keys(MISTAKES).forEach(k => { if (!findMistake(MISTAKES[k])) delete MISTAKES[k]; });
+  return Object.entries(MISTAKES).filter(([, m]) => m.due <= t).map(([key, m]) => Object.assign({ key }, m));
+}
+function runMistakes(list, opts = {}) {
+  if (!opts.daily) enterSub();
+  let i = 0, right = 0; const missed = [];
+  if (!list.length) { setHeader('Mistake review', true); stage.innerHTML = '<p class="sub">No mistakes are due for review. Nice work.</p>'; return; }
+  const card = () => {
+    const m = list[i], f = findMistake(m);
+    if (!f) { i++; return i < list.length ? card() : done(); }
+    const { item, q } = f, t = m.task;
+    setHeader(opts.daily ? dailyTitle() : `Mistake review · ${i + 1}/${list.length}`, true);
+    let ctx = '';
+    if (t === 'daily') ctx = `<div class="doc"><span class="kind">${esc(item.kind || 'Text')}</span>${esc(item.text)}</div>`;
+    else if (t === 'academic' || t === 'skim') ctx = `<details class="guide" open><summary>📄 ${esc(item.title)}</summary><div class="passage" style="margin:10px 0 0;">${item.paras.map((x, k) => `<p><span class="pnum">¶${k + 1}</span>${esc(x)}</p>`).join('')}</div></details>`;
+    else if (t === 'vic') { const x = item.items[m.qi]; ctx = `<p class="vic-text">${esc(x.text).replace(/\{\{(.+?)\}\}/, '<b class="target">$1</b>').replace(/\[\[(.+?)\]\]/, '$1')}</p>`; }
+    else if (t === 'respond' || item.lines) ctx = `<div class="player" id="mp"></div>`;
+    stage.innerHTML = `<div class="pbar static" aria-hidden="true"><i style="width:${Math.round(100 * i / list.length)}%"></i></div>
+      <div class="w-eyebrow">${esc(TASKS[t].name)} · ${esc(item.title)}${m.n > 1 ? ` · missed ${m.n} times` : ''}</div>
+      ${ctx}
+      <div id="mq">${mcqHtml([q], 'mr')}</div>
+      <div class="row" style="justify-content:center;"><button class="btn" id="mchk">Check</button></div>
+      <div id="mfb"></div>`;
+    if (t === 'respond') mountPlayer($('#mp'), [{ s: m.qi % 2, t: item.items[m.qi].say }], { label: '▶ Play' });
+    else if (item.lines) mountPlayer($('#mp'), item.lines, { label: '▶ Play the recording' });
+    $('#mchk').addEventListener('click', () => {
+      const chosen = $('input[name="mr-0"]:checked');
+      if (!chosen) { toast('Choose an answer first.'); return; }
+      $('#mchk').remove();
+      const ok = gradeMcq([q], 'mr', $('#mq')) === 1;
+      if (ok) { right++; advanceMistake(m.key); }
+      else { missed.push(m); MISTAKES[m.key] = Object.assign(MISTAKES[m.key] || m, { box: 1, due: addDays(1), n: (m.n || 1) + 1 }); }
+      saveMistakes(); buzz(ok ? 20 : [25, 70, 25]);
+      const after = MISTAKES[m.key];
+      $('#mfb').innerHTML = `<div class="w-feedback">
+        <div class="stamp ${ok ? 'good' : 'low'}" style="font-size:17px;">${ok ? 'Correct' : 'Not yet'}</div>
+        <p class="hint">${ok ? (after ? `Next review in ${MISTAKE_DAYS[after.box]} days.` : 'Cleared from your review list. 🎉') : 'It will come back tomorrow.'}</p>
+        ${item.lines ? `<details class="transcript" style="text-align:left;"><summary>Transcript</summary>${item.lines.map(l => `<p>${item.lines.length > 1 ? `<b>${esc(l.name || 'Speaker')}:</b> ` : ''}${esc(l.t)}</p>`).join('')}</details>` : ''}
+        <div class="row" style="justify-content:center; margin-top:10px;">
+          ${ok ? '' : askBtnHtml(explainPrompt(t, item, q, q.options[+chosen.value], t === 'respond' ? item.items[m.qi].say : t === 'vic' ? item.items[m.qi].text.replace(/\{\{|\}\}|\[\[|\]\]/g, '') : ''), 'Ask Claude why ↗', 'btn ghost')}
+          <button class="btn" id="mnx">${i + 1 < list.length ? 'Next ▶' : 'See results'}</button></div></div>`;
+      $('#mnx').addEventListener('click', () => { stopSpeech(); i++; i < list.length ? card() : done(); window.scrollTo(0, 0); });
+    });
+  };
+  const done = () => {
+    if (opts.onDone) return opts.onDone(right, list.length);
+    markStudyDay();
+    setHeader('Mistake review', true);
+    const left = dueMistakes().length;
+    stage.innerHTML = `<div class="result">${stampHtml(right, list.length)}</div>
+      <p class="sub" style="text-align:center;">${missed.length ? `${missed.length} will come back tomorrow.` : 'All correct.'} ${left ? `${left} more due today.` : ''}</p>
+      <div class="row" style="justify-content:center; margin-top:16px;">${left ? '<button class="btn ghost" id="more">Review more</button>' : ''}<button class="btn" id="back">Done</button></div>`;
+    const mo = $('#more'); if (mo) mo.addEventListener('click', () => go(() => runMistakes(shuffle(dueMistakes()).slice(0, 10))));
+    $('#back').addEventListener('click', goBack);
+  };
+  card();
+}
+
+// ---------- Backup and restore ----------
+const BACKUP_PREFIX = 'toefl26-';
+function backupData() {
+  const data = {};
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith(BACKUP_PREFIX)) data[k] = localStorage.getItem(k);
+    }
+  } catch (e) { }
+  // Never put the API key in a backup file.
+  if (data['toefl26-settings']) { try { const s = JSON.parse(data['toefl26-settings']); delete s.apiKey; data['toefl26-settings'] = JSON.stringify(s); } catch (e) { } }
+  return { app: 'toefl-practice', version: 1, created: new Date().toISOString(), data };
+}
+function exportBackup(out) {
+  const b = backupData();
+  const blob = new Blob([JSON.stringify(b)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = `toefl-progress-${dayStr()}.json`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  store.set('toefl26-lastbackup', dayStr());
+  out.textContent = `Saved toefl-progress-${dayStr()}.json to your Downloads. Keep it somewhere safe, like Google Drive.`;
+}
+function importBackup(file, out) {
+  const r = new FileReader();
+  r.onload = () => {
+    let b;
+    try { b = JSON.parse(r.result); } catch (e) { out.textContent = "That file isn't a backup from this app."; return; }
+    if (!b || b.app !== 'toefl-practice' || !b.data) { out.textContent = "That file isn't a backup from this app."; return; }
+    const when = b.created ? new Date(b.created).toLocaleDateString() : 'an unknown date';
+    showConfirm('Restore this backup?', `It's from ${when}. It replaces all progress on this device.`, 'Restore', () => {
+      const keep = { apiKey: SETTINGS.apiKey, model: SETTINGS.model };
+      try {
+        Object.keys(localStorage).filter(k => k.startsWith(BACKUP_PREFIX)).forEach(k => localStorage.removeItem(k));
+        Object.entries(b.data).forEach(([k, v]) => { if (k.startsWith(BACKUP_PREFIX) && typeof v === 'string') localStorage.setItem(k, v); });
+        const s = JSON.parse(localStorage.getItem('toefl26-settings') || '{}');
+        if (keep.apiKey) s.apiKey = keep.apiKey; if (keep.model) s.model = keep.model;
+        localStorage.setItem('toefl26-settings', JSON.stringify(s));
+      } catch (e) { out.textContent = "Couldn't restore on this device: storage isn't available."; return; }
+      location.reload();
+    }, 'Cancel');
+  };
+  r.readAsText(file);
 }
 
 window.addEventListener('popstate', () => {
