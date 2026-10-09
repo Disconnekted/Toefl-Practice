@@ -142,7 +142,7 @@ function splitSentences(t) { return (t.match(/[^.!?]+[.!?]*["']?\s*/g) || [t]).m
 let AUDIO_INDEX = null;
 const studioPlayer = new Audio(); studioPlayer.preload = 'auto';
 const clipUrls = new Map();
-fetch('audio/index.json', { cache: 'no-cache' }).then(r => r.ok ? r.json() : null).then(j => {
+const AUDIO_READY = fetch('audio/index.json', { cache: 'no-cache' }).then(r => r.ok ? r.json() : null).then(j => {
   if (j && j.files && Object.keys(j.files).length) AUDIO_INDEX = j.files;
   const st = document.getElementById('studioStatus'); if (st) st.textContent = studioStatus();
 }).catch(() => { });
@@ -264,29 +264,222 @@ function fillVoiceSelects() {
   const tip = document.getElementById('voiceTip'); if (tip) tip.textContent = voiceTip();
 }
 
-// A play control that respects exam mode (one play only)
-function mountPlayer(el, lines, { label = '▶ Play audio', onFirstEnd, once = false } = {}) {
-  let plays = 0, playing = false, firstDone = false;
-  const single = () => once || SETTINGS.exam;
-  el.innerHTML = `<button class="btn" data-p="play">${label}</button><button class="btn ghost small" data-p="stop" hidden>■ Stop</button><span class="state"></span><div class="pbar" role="progressbar" aria-label="Audio progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i></i></div>`;
-  const play = $('[data-p=play]', el), stop = $('[data-p=stop]', el), state = $('.state', el), bar = $('.pbar', el), fill = $('.pbar i', el);
-  const setP = f => { const v = Math.round(Math.max(0, Math.min(1, f)) * 100); fill.style.width = v + '%'; bar.setAttribute('aria-valuenow', v); };
-  const paint = () => {
-    play.hidden = playing; stop.hidden = !playing || once;
-    if (single() && plays >= 1 && !playing) { play.disabled = true; play.textContent = 'Played'; }
-    else if (plays >= 1) play.textContent = '↺ Play again';
-    state.textContent = playing ? (once ? 'Playing… one time only' : 'Playing…') : (once ? (plays ? 'Finished' : 'You will hear it once') : SETTINGS.exam ? 'Exam mode: one listen only' : (plays ? `Played ${plays}×` : ''));
+// ---------- Seekable playback (YouTube-style player) ----------
+// One engine per player. Recorded clips: a real timeline built from each
+// clip's duration, so you can jump to any second. Phone voices can't start
+// mid-sentence, so seeking jumps to the nearest sentence.
+const TURN_GAP = 0.45; // seconds of silence between speakers on the timeline
+let ACTIVE_PB = null;
+function createPlayback(lines, { onProgress, onEnd } = {}) {
+  let mode = null, ready = null, playing = false, token = -1;
+  // studio state (media seconds)
+  let urls = [], durs = [], offs = [], total = 0, pos = 0, line = 0, gapTimer = null, raf = 0;
+  // tts state
+  let units = [], uOffs = [], uDurs = [], k = 0, unitStart = 0;
+  const rate = () => Math.max(0.6, Math.min(1.5, (SETTINGS.rate || 0.9) / 0.9));
+  const me = {};
+  const tick = () => { onProgress && onProgress(me.frac(), me.now(), me.total()); };
+  const loop = () => { cancelAnimationFrame(raf); const f = () => { if (!playing || token !== playToken) return; if (mode === 'studio' && studioPlayer.src) pos = offs[line] + studioPlayer.currentTime; tick(); raf = requestAnimationFrame(f); }; raf = requestAnimationFrame(f); };
+  const buildTTS = () => {
+    mode = 'tts'; units = []; let t = 0;
+    lines.forEach((l, li) => splitSentences(l.t).forEach((sen, si, arr) => {
+      const d = Math.max(0.8, wordCount(sen) / 2.6) + (si === arr.length - 1 && li < lines.length - 1 ? TURN_GAP : 0.15);
+      units.push({ s: l.s || 0, li, t: sen }); uOffs.push(t); uDurs.push(d); t += d;
+    }));
+    total = t;
   };
-  play.addEventListener('click', () => {
-    plays++; playing = true; paint(); setP(0);
-    speak(lines, ok => {
-      playing = false; if (ok !== false) setP(1);
-      if (ok === false) { plays = Math.max(0, plays - 1); paint(); return; } // audio failed: allow another try
-      paint(); if (!firstDone) { firstDone = true; onFirstEnd && onFirstEnd(); }
-    }, setP);
+  me.ensure = () => ready || (ready = (async () => {
+    try { await Promise.race([AUDIO_READY, new Promise(r => setTimeout(r, 1500))]); } catch (e) { }
+    if (!useStudio(lines)) return buildTTS();
+    try {
+      urls = await Promise.all(lines.map(l => clipUrl(AUDIO_INDEX[audioKey(l.s || 0, l.t)])));
+      durs = await Promise.all(urls.map(u => new Promise(res => {
+        const a = new Audio(); a.preload = 'metadata';
+        a.onloadedmetadata = () => res(isFinite(a.duration) && a.duration > 0 ? a.duration : 2);
+        a.onerror = () => res(null); a.src = u;
+      })));
+      if (durs.some(d => d == null)) return buildTTS();
+      let t = 0; offs = durs.map((d, i) => { const o = t; t += d + (i < durs.length - 1 ? TURN_GAP : 0); return o; });
+      total = t; mode = 'studio';
+    } catch (e) { buildTTS(); }
+  })().then(() => tick()));
+  me.total = () => mode === 'studio' ? total / rate() : total;
+  me.now = () => {
+    if (mode === 'studio') return pos / rate();
+    if (mode !== 'tts') return 0;
+    const base = uOffs[Math.min(k, units.length - 1)] || 0;
+    if (k >= units.length) return total;
+    const within = playing ? Math.min(uDurs[k], (performance.now() - unitStart) / 1000) : 0;
+    return base + within;
+  };
+  me.frac = () => { const T = me.total(); return T ? Math.max(0, Math.min(1, me.now() / T)) : 0; };
+  me.isPlaying = () => playing;
+  me.atEnd = () => mode === 'studio' ? pos >= total - 0.05 : (mode === 'tts' && k >= units.length);
+  const finish = ok => { playing = false; cancelAnimationFrame(raf); if (mode === 'studio') pos = total; else if (ok !== false) k = units.length; tick(); onEnd && onEnd(ok); };
+  // --- studio playback from timeline position t (media seconds)
+  const startStudio = t => {
+    stopSpeech(); token = playToken; clearTimeout(gapTimer);
+    pos = Math.max(0, Math.min(total, t));
+    let i = offs.findIndex((o, j) => pos < o + durs[j] + (j < durs.length - 1 ? TURN_GAP : 0));
+    if (i < 0) return finish(true);
+    line = i;
+    const local = pos - offs[i];
+    if (local >= durs[i]) { // inside the gap after this line
+      gapTimer = setTimeout(() => { if (token === playToken && playing) startStudio(offs[i + 1]); }, (offs[i + 1] - pos) * 1000 / rate());
+      loop(); return;
+    }
+    studioPlayer.onended = () => {
+      if (token !== playToken || !playing) return;
+      pos = offs[i] + durs[i];
+      if (i + 1 >= offs.length) return finish(true);
+      gapTimer = setTimeout(() => { if (token === playToken && playing) startStudio(offs[i + 1]); }, TURN_GAP * 1000 / rate());
+    };
+    studioPlayer.onerror = () => { if (token === playToken) finish(true); };
+    studioPlayer.ontimeupdate = null;
+    const go2 = () => {
+      if (token !== playToken || !playing) return;
+      try { studioPlayer.currentTime = local; } catch (e) { }
+      studioPlayer.defaultPlaybackRate = studioPlayer.playbackRate = rate();
+      try { studioPlayer.preservesPitch = true; } catch (e) { }
+      const p = studioPlayer.play(); if (p && p.catch) p.catch(() => { if (token === playToken) { playing = false; tick(); onEnd && onEnd(false); } });
+      loop();
+    };
+    if (studioPlayer.src === urls[i] && studioPlayer.readyState >= 1) go2();
+    else { studioPlayer.src = urls[i]; studioPlayer.addEventListener('loadedmetadata', go2, { once: true }); studioPlayer.load(); }
+  };
+  // --- phone-voice playback from sentence index j
+  const startTTS = j => {
+    k = Math.max(0, Math.min(units.length, j));
+    if (k >= units.length) return finish(true);
+    const rest = []; // regroup remaining sentences into speaker turns
+    units.slice(k).forEach(u => { const last = rest[rest.length - 1]; if (last && last.li === u.li) last.t += ' ' + u.t; else rest.push({ s: u.s, li: u.li, t: u.t }); });
+    const k0 = k, n = units.length - k0;
+    unitStart = performance.now();
+    speakTTS(rest, ok => {
+      if (ok === false) { playing = false; cancelAnimationFrame(raf); tick(); onEnd && onEnd(false); return; }
+      finish(true);
+    }, f => { const nk = k0 + Math.round(f * n); if (nk !== k) { k = nk; unitStart = performance.now(); } });
+    token = playToken; loop();
+  };
+  me.play = async () => {
+    if (ACTIVE_PB && ACTIVE_PB !== me) ACTIVE_PB.interrupt();
+    ACTIVE_PB = me;
+    await me.ensure();
+    playing = true; tick();
+    if (mode === 'studio') startStudio(me.atEnd() ? 0 : pos);
+    else startTTS(me.atEnd() ? 0 : k);
+  };
+  me.pause = () => {
+    if (!playing) return;
+    playing = false; clearTimeout(gapTimer); cancelAnimationFrame(raf);
+    if (mode === 'studio' && studioPlayer.src) pos = offs[line] + Math.min(studioPlayer.currentTime, durs[line]);
+    stopSpeech(); tick();
+  };
+  me.interrupt = () => { if (playing) { playing = false; clearTimeout(gapTimer); cancelAnimationFrame(raf); tick(); } };
+  // seek to a fraction of the whole recording
+  me.seek = async f => {
+    await me.ensure();
+    f = Math.max(0, Math.min(1, f));
+    if (mode === 'studio') { pos = f * total; if (playing) startStudio(pos); else tick(); }
+    else {
+      const t = f * total; let j = uOffs.findIndex((o, x) => t < o + uDurs[x]); if (j < 0) j = units.length;
+      if (f >= 0.999) j = units.length;
+      k = j; unitStart = performance.now();
+      if (playing) { if (k >= units.length) { stopSpeech(); finish(true); } else startTTS(k); } else tick();
+    }
+  };
+  me.seekBy = secs => { const T = me.total(); if (T) me.seek((me.now() + secs) / T); };
+  return me;
+}
+
+const fmtT = s => { s = Math.max(0, Math.round(s || 0)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
+// A play control. Normal mode: play/pause, 5-second rewind, and a seek bar
+// you can drag or tap, like a video player. Exam mode and "plays once"
+// drills keep the real test's rule: one play, no pausing or seeking.
+function mountPlayer(el, lines, { label = '▶ Play audio', onFirstEnd, once = false } = {}) {
+  const locked = once || SETTINGS.exam;
+  let plays = 0, started = false, firstDone = false, dragging = false;
+  el.classList.add('ap-host');
+  el.innerHTML = `<div class="ap-row">
+      <button class="btn ap-play" data-p="play">${label}</button>
+      ${locked ? '' : '<button class="btn ghost small ap-back" data-p="back" aria-label="Back 5 seconds" hidden>↺ 5s</button>'}
+      <span class="ap-time"><span data-cur>0:00</span> / <span data-tot>–:––</span></span>
+      <span class="state"></span>
+    </div>
+    <div class="ap-seek${locked ? ' locked' : ''}" ${locked ? 'aria-hidden="true"' : 'role="slider" tabindex="0" aria-label="Audio position" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"'}>
+      <div class="ap-track"><i class="ap-fill"></i></div><span class="ap-thumb"></span><span class="ap-tip" hidden></span>
+    </div>`;
+  const play = $('[data-p=play]', el), back = $('[data-p=back]', el), state = $('.state', el);
+  const seekEl = $('.ap-seek', el), fill = $('.ap-fill', el), thumb = $('.ap-thumb', el), tip = $('.ap-tip', el);
+  const cur = $('[data-cur]', el), tot = $('[data-tot]', el);
+  const show = (f, now, T) => {
+    const pct = Math.max(0, Math.min(1, f)) * 100;
+    fill.style.width = pct + '%'; thumb.style.left = pct + '%';
+    cur.textContent = fmtT(now); if (T) tot.textContent = fmtT(T);
+    if (!locked) { seekEl.setAttribute('aria-valuenow', Math.round(pct)); seekEl.setAttribute('aria-valuetext', `${fmtT(now)} of ${fmtT(T)}`); }
+  };
+  const paint = () => {
+    const p = pb.isPlaying();
+    if (locked) {
+      play.disabled = p || plays >= 1;
+      play.textContent = p ? 'Playing…' : plays >= 1 ? 'Played' : label;
+      state.textContent = p ? (once ? 'one time only' : '') : (once ? (plays ? 'Finished' : 'You will hear it once') : 'Exam mode: one listen only');
+    } else {
+      if (!started) play.textContent = label;
+      else play.textContent = p ? '❚❚ Pause' : pb.atEnd() ? '↺ Replay' : '▶ Resume';
+      play.setAttribute('aria-label', p ? 'Pause' : 'Play');
+      if (back) back.hidden = !started;
+      state.textContent = '';
+    }
+  };
+  const pb = createPlayback(lines, {
+    onProgress: (f, now, T) => { if (!dragging) show(f, now, T); paint(); },
+    onEnd: ok => {
+      paint();
+      if (ok === false) { if (locked) { plays = Math.max(0, plays - 1); paint(); } return; } // audio failed: allow another try
+      if (!firstDone) { firstDone = true; onFirstEnd && onFirstEnd(); }
+    }
   });
-  stop.addEventListener('click', () => { stopSpeech(); playing = false; paint(); if (!firstDone) { firstDone = true; onFirstEnd && onFirstEnd(); } });
+  pb.ensure();
+  play.addEventListener('click', () => {
+    if (locked) { if (plays >= 1 || pb.isPlaying()) return; plays++; started = true; pb.play(); paint(); return; }
+    if (pb.isPlaying()) pb.pause();
+    else { started = true; plays++; pb.play(); }
+    paint();
+  });
+  if (back) back.addEventListener('click', () => pb.seekBy(-5));
+  if (!locked) {
+    const fracAt = x => { const r = $('.ap-track', el).getBoundingClientRect(); return Math.max(0, Math.min(1, (x - r.left) / r.width)); };
+    const preview = f => { const T = pb.total(); show(f, f * T, T); tip.hidden = false; tip.style.left = (f * 100) + '%'; tip.textContent = fmtT(f * T); };
+    seekEl.addEventListener('pointerdown', e => {
+      if (e.button > 0) return;
+      dragging = true; seekEl.classList.add('dragging');
+      try { seekEl.setPointerCapture(e.pointerId); } catch (x) { }
+      preview(fracAt(e.clientX)); e.preventDefault();
+    });
+    seekEl.addEventListener('pointermove', e => { if (dragging) preview(fracAt(e.clientX)); });
+    const end = e => {
+      if (!dragging) return;
+      dragging = false; seekEl.classList.remove('dragging'); tip.hidden = true;
+      const f = fracAt(e.clientX);
+      if (!started) { started = true; }
+      pb.seek(f); if (!pb.isPlaying() && plays === 0) { plays++; pb.play(); }
+      paint();
+    };
+    seekEl.addEventListener('pointerup', end);
+    seekEl.addEventListener('pointercancel', () => { dragging = false; seekEl.classList.remove('dragging'); tip.hidden = true; });
+    seekEl.addEventListener('keydown', e => {
+      const T = pb.total() || 1;
+      if (e.key === 'ArrowRight') { pb.seekBy(5); e.preventDefault(); }
+      else if (e.key === 'ArrowLeft') { pb.seekBy(-5); e.preventDefault(); }
+      else if (e.key === 'Home') { pb.seek(0); e.preventDefault(); }
+      else if (e.key === 'End') { pb.seek(1); e.preventDefault(); }
+      else if (e.key === ' ' || e.key === 'Enter') { play.click(); e.preventDefault(); }
+    });
+  }
+  onLeave(() => pb.interrupt());
   paint();
+  return pb;
 }
 
 // ---------- Speech recognition ----------
