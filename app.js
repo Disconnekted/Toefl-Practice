@@ -667,6 +667,7 @@ Object.defineProperty(TASKS.vic, 'gen', { get() {
 } });
 TASKS.rtest = { section: 'Reading', name: 'Full Reading test', blurb: 'All three task types in order, about 25 minutes. Estimated band at the end.', test: true };
 TASKS.ltest = { section: 'Listening', name: 'Full Listening test', blurb: 'All four task types, each recording plays once. Estimated band at the end.', test: true };
+TASKS.diag = { section: 'Level check', name: 'Level check', blurb: 'A 15-minute mix of Reading and Listening with a rough band for each.', test: true };
 const SECTIONS = [
   { name: 'Reading', meta: 'about 30 min, adaptive', tasks: ['ctw', 'daily', 'academic'] },
   { name: 'Reading strategies', meta: 'skill drills', tasks: ['skim', 'trans', 'vic'] },
@@ -825,7 +826,9 @@ function renderHomeTab() {
     ${IS_ANDROID && !isStandalone() && !store.get('toefl26-android-tip', 0) ? `<div class="notice info" id="androidTip" style="margin:0 0 18px; display:flex; gap:10px; align-items:flex-start;"><span><b>Install it as an app:</b> in Chrome, tap ⋮, then <b>Install app</b>. It then works offline.</span><button class="icon-btn" id="androidTipX" style="color:var(--pine); border-color:var(--pine); flex-shrink:0;" aria-label="Dismiss tip">✕</button></div>` : ''}
     <h1>TOEFL iBT practice</h1>
     <p class="sub">Every task type on the current test (the format in use since January 21, 2026), plus strategy drills.</p>
+    ${levelCardHtml()}
     ${dailyCardHtml()}
+    ${weakCardHtml()}
     ${lastOk ? `<button class="home-card" id="contBtn">
       <span class="hc-kicker">Continue</span>
       <span class="hc-title">${esc(TASKS[last.id].name)}</span>
@@ -848,6 +851,9 @@ function renderHomeTab() {
   const wb = $('#wordsDue'); if (wb) wb.addEventListener('click', () => go(() => renderTab('words')));
   const mb = $('#mistakesDue'); if (mb) mb.addEventListener('click', () => go(() => runMistakes(shuffle(dueMistakes()).slice(0, 10))));
   $('#sugBtn').addEventListener('click', () => go(() => openTask(sug.id)));
+  $('#levelBtn').addEventListener('click', () => go(() => openTest('diag')));
+  const gb = $('#goalBtn'); if (gb) gb.addEventListener('click', () => go(renderSettings));
+  const wk = $('#weakBtn'); if (wk) wk.addEventListener('click', () => go(() => runTypeDrill(wk.dataset.type)));
   $('#progBtn').addEventListener('click', () => go(renderProgress));
   $$('[data-goto]').forEach(b => b.addEventListener('click', () => go(() => renderTab(b.dataset.goto))));
   const tipX = $('#androidTipX'); if (tipX) tipX.addEventListener('click', () => { store.set('toefl26-android-tip', 1); $('#androidTip').remove(); });
@@ -876,6 +882,12 @@ function renderProgress() {
     </div>
     ${(() => { const all = Object.keys(MISTAKES).length, d = dueMistakes().length; return all ? `<div class="notice info" style="margin:0 0 12px; display:flex; justify-content:space-between; align-items:center; gap:10px;"><span>${all} question${all > 1 ? 's' : ''} in mistake review${d ? `, ${d} due now` : ''}.</span>${d ? '<button class="btn small" id="progMist">Review</button>' : ''}</div>` : ''; })()}
     ${(() => { const lb = store.get('toefl26-lastbackup', null); const studied = store.get('toefl26-days', []).length; return studied >= 3 && (!lb || (Date.now() - new Date(lb).getTime()) > 30 * 864e5) ? '<p class="hint">💾 Tip: save a backup of your progress in Settings.</p>' : ''; })()}
+    ${(() => { const ts = typeStats(1); return `<section class="sec"><div class="sec-head"><h2>By question type</h2></div>
+      ${ts.length ? `<p class="hint">Your last 40 answers of each type, weakest first. Tap one to practice it.</p>${ts.map(x => `<button class="qt-row" data-qt="${esc(x.k)}">
+        <span class="qt-name">${esc(x.k)}<br><span class="hint">${esc(QT_TIPS[x.k] || '')}</span></span>
+        <span class="sk-bar" aria-hidden="true"><i style="width:${Math.round(x.pct * 100)}%"></i></span>
+        <span class="pr-val">${Math.round(x.pct * 100)}%<br><span class="hint">${x.n} q</span></span></button>`).join('')}`
+      : '<p class="hint">Check a few Reading or Listening sets and your accuracy by question type (main idea, detail, inference, and more) shows up here.</p>'}</section>`; })()}
     <p class="hint">Each line shows your last 12 scores for a task. The dotted line marks 80%.</p>
     ${SKILL_TABS.map(t => `
       <section class="sec"><div class="sec-head"><h2>${t.label}</h2></div>
@@ -891,6 +903,7 @@ function renderProgress() {
         </button>`;
       }).join('')}</section>`).join('')}`;
   $$('.prog-row[data-task]').forEach(b => b.addEventListener('click', () => go(() => openAny(b.dataset.task))));
+  $$('.qt-row[data-qt]').forEach(b => b.addEventListener('click', () => go(() => runTypeDrill(b.dataset.qt))));
   const pm = $('#progMist'); if (pm) pm.addEventListener('click', () => go(() => runMistakes(shuffle(dueMistakes()).slice(0, 10))));
 }
 
@@ -900,6 +913,11 @@ function renderSettings() {
   stage.innerHTML = `
     <h1>Settings</h1>
     <div class="set-grid">
+      <div><span class="lbl">Your goal</span>
+        <p class="hint" style="margin:0 0 8px;">The test reports each section on a 1 to 6 band scale. Check the score your university or program asks for.</p>
+        <div class="seg" id="goalSeg">${[0, 3, 3.5, 4, 4.5, 5, 5.5, 6].map(v => `<button data-goal="${v}" class="${(+SETTINGS.goal || 0) === v ? 'active' : ''}">${v ? v.toFixed(1) : 'None'}</button>`).join('')}</div>
+        <label class="lbl" for="testDateIn" style="display:block; margin-top:10px;">Test date</label>
+        <input id="testDateIn" class="field-in" type="date" value="${esc(SETTINGS.testDate || '')}" style="max-width:220px;"></div>
       <div><span class="lbl">Text size for passages and questions</span>
         <div class="seg" id="sizeSeg">${TEXT_SIZES.map((v, i) => `<button data-size="${v}" class="${Math.abs((SETTINGS.textScale || 1) - v) < 0.01 ? 'active' : ''}" style="font-size:${12 + i * 1.5}px">A</button>`).join('')}</div></div>
       <label class="check"><input type="checkbox" id="koBox" ${SETTINGS.koInstr ? 'checked' : ''}><span>Show task instructions in Korean too (과제 설명을 한국어로도 보기)</span></label>
@@ -940,6 +958,8 @@ function renderSettings() {
     </div>`;
   $('#sizeSeg').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; SETTINGS.textScale = +b.dataset.size; saveSettings(); applyTextSize(); $$('#sizeSeg button').forEach(x => x.classList.toggle('active', x === b)); });
   $('#koBox').addEventListener('change', e => { SETTINGS.koInstr = e.target.checked; saveSettings(); });
+  $('#goalSeg').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; SETTINGS.goal = +b.dataset.goal; saveSettings(); $$('#goalSeg button').forEach(x => x.classList.toggle('active', x === b)); });
+  $('#testDateIn').addEventListener('change', e => { SETTINGS.testDate = e.target.value; saveSettings(); });
   $('#rateSeg').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; SETTINGS.rate = +b.dataset.rate; saveSettings(); $$('#rateSeg button').forEach(x => x.classList.toggle('active', x === b)); });
   $('#examBox').addEventListener('change', e => { SETTINGS.exam = e.target.checked; saveSettings(); });
   $('#korBox').addEventListener('change', e => { SETTINGS.korean = e.target.checked; saveSettings(); });
@@ -967,7 +987,7 @@ function renderSettings() {
   $('#importFile').addEventListener('change', e => { const f = e.target.files[0]; if (f) importBackup(f, $('#backupOut')); e.target.value = ''; });
   $('#resetBtn').addEventListener('click', e => {
     if (!e.target.dataset.armed) { e.target.dataset.armed = '1'; e.target.textContent = 'Tap again to clear all scores'; return; }
-    STATS = {}; CURSOR = {}; HIST = {}; MISTAKES = {}; saveMistakes(); TEST_USED = {}; store.set('toefl26-testused', {}); SRS = {}; DAILY = null; saveSRS(); saveDaily(); store.set('toefl26-days', []);
+    STATS = {}; CURSOR = {}; HIST = {}; MISTAKES = {}; saveMistakes(); QTYPES = {}; store.set('toefl26-qtypes', {}); store.set('toefl26-level', null); TEST_USED = {}; store.set('toefl26-testused', {}); SRS = {}; DAILY = null; saveSRS(); saveDaily(); store.set('toefl26-days', []);
     store.set('toefl26-stats', STATS); store.set('toefl26-cursor', CURSOR); store.set('toefl26-hist', HIST); store.set('toefl26-last', null);
     e.target.textContent = 'Progress cleared'; e.target.disabled = true;
   });
@@ -983,7 +1003,7 @@ function showWelcome() {
       ? 'In Safari, tap the Share button, then <b>Add to Home Screen</b>.'
       : 'In Chrome, tap <b>⋮</b> in the top corner, then <b>Install app</b> (or <b>Add to Home screen</b>). The app then opens like any other app and works offline.';
   const slides = [
-    { title: 'Practice the whole TOEFL', body: `<p>Use the tabs at the bottom: <b>Reading</b>, <b>Listening</b>, <b>Writing</b>, and <b>Speaking</b>. Each has the real test tasks, and Reading and Listening also have strategy drills. <b>Words</b> has the Academic Word List with spaced review.</p><p>Short on time? Tap <b>Daily 15</b> on Home for a 15-minute mix of everything.</p>
+    { title: 'Practice the whole TOEFL', body: `<p>Use the tabs at the bottom: <b>Reading</b>, <b>Listening</b>, <b>Writing</b>, and <b>Speaking</b>. Each has the real test tasks, and Reading and Listening also have strategy drills. <b>Words</b> has the Academic Word List with spaced review.</p><p>New here? Start with the <b>Level check</b> on Home: about 15 minutes, with a rough Reading and Listening band. Short on time? Tap <b>Daily 15</b> for a 15-minute mix of everything.</p>
       <label class="check"><input type="checkbox" id="wKo" ${SETTINGS.koInstr ? 'checked' : ''}><span>Show task instructions in Korean too<br><span lang="ko">과제 설명을 한국어로도 보기</span></span></label>` },
     { title: 'Install it on your phone', body: `<p>${installText}</p>` },
     { title: 'Save the audio for offline use', body: `<p>Listening tasks use recorded voices. Save them once on Wi-Fi (about 5 to 10 MB) so they play without internet.</p>
@@ -1114,6 +1134,7 @@ function gradeMcq(qs, pfx, root, track) {
     if (track) {
       const qi = track.qi ? track.qi(i) : i;
       noteResult(track.task, track.item, qi, ok);
+      noteType(qType(track.task, reviewQuestion(track.task, track.item, qi) || q), ok);
       if (!ok && fs && !fs.querySelector('[data-ask]')) {
         const extra = track.task === 'respond' ? track.item.items[qi].say : track.task === 'vic' ? track.item.items[qi].text.replace(/\{\{|\}\}|\[\[|\]\]/g, '') : '';
         const rq = reviewQuestion(track.task, track.item, qi) || q;
@@ -2343,9 +2364,13 @@ function templateHtml(kind, open = false) {
 // you can't go back to earlier parts. The real test is adaptive (its second
 // half gets easier or harder); this one uses a fixed mix.
 const TEST_PLANS = {
-  rtest: { section: 'Reading', tab: 'reading', parts: ['ctw', 'daily', 'academic', 'ctw', 'daily', 'daily', 'academic'] },
-  ltest: { section: 'Listening', tab: 'listening', parts: ['respond', 'convo', 'announce', 'talk', 'respond', 'convo', 'talk'] }
+  rtest: { section: 'Reading', title: 'Reading practice test', short: 'Reading test', tab: 'reading', parts: ['ctw', 'daily', 'academic', 'ctw', 'daily', 'daily', 'academic'] },
+  ltest: { section: 'Listening', title: 'Listening practice test', short: 'Listening test', tab: 'listening', parts: ['respond', 'convo', 'announce', 'talk', 'respond', 'convo', 'talk'] },
+  // Level check: one part of each main task, about 15 minutes.
+  diag: { section: 'Level check', title: 'Level check', short: 'Level check', tab: 'home', parts: ['ctw', 'daily', 'respond', 'convo', 'talk'] }
 };
+const READING_TASKS = new Set(['ctw', 'daily', 'academic']);
+const hasListening = parts => parts.some(p => !READING_TASKS.has(p.task || p));
 let TEST = null;
 let TEST_USED = store.get('toefl26-testused', {});
 // Score bands: rough practice estimates on the 1-6 scale (not ETS's formula).
@@ -2379,9 +2404,9 @@ function pickTestSets(planId) {
     return { task, idx: choice, item: pool(task)[choice] };
   });
 }
+// Reading: about 36 seconds a question. Listening: 20 seconds a question plus the audio.
 function testSecs(planId, parts) {
-  if (planId === 'rtest') return Math.round(parts.reduce((n, p) => n + partItems(p), 0) * 36);
-  return Math.round(parts.reduce((n, p) => n + partItems(p) * 20 + audioSecs(p), 0));
+  return Math.round(parts.reduce((n, p) => n + (READING_TASKS.has(p.task) ? partItems(p) * 36 : partItems(p) * 20 + audioSecs(p)), 0));
 }
 const fmtMin = s => `${Math.floor(s / 60)}:${String(Math.round(s) % 60).padStart(2, '0')}`;
 
@@ -2389,17 +2414,19 @@ function openTest(planId) {
   enterSub();
   const plan = TEST_PLANS[planId];
   currentTab = plan.tab; paintTabbar();
-  setHeader(`${plan.section} practice test`, true);
-  const parts = pickTestSets(planId);
+  setHeader(plan.title, true);
+  const parts = pickTestSets(planId), listen = hasListening(parts);
   const q = parts.reduce((n, p) => n + partItems(p), 0), secs = testSecs(planId, parts);
   const hist = (HIST[planId] || []);
   const last = hist[hist.length - 1];
-  stage.innerHTML = `<h1>${plan.section} practice test</h1>
-    <p class="task-how">A full ${plan.section} section in test order, under a time limit. ${planId === 'ltest' ? 'Each recording plays <b>once</b>, and questions appear after it ends. ' : ''}You can't go back to earlier parts. Your score, an estimated band, and explanations for every question come at the end.</p>
+  stage.innerHTML = `<h1>${plan.title}</h1>
+    <p class="task-how">${planId === 'diag'
+      ? 'A short mix of the main Reading and Listening tasks, under a time limit. Each recording plays <b>once</b>. At the end you get a rough band for Reading and for Listening, and the question types to work on first.'
+      : `A full ${plan.section} section in test order, under a time limit. ${listen ? 'Each recording plays <b>once</b>, and questions appear after it ends. ' : ''}You can't go back to earlier parts. Your score, an estimated band, and explanations for every question come at the end.`}</p>
     <div class="stat-row"><div class="stat"><b>${q}</b><span>questions in ${parts.length} parts</span></div><div class="stat"><b>${Math.ceil(secs / 60)}</b><span>minutes</span></div></div>
     <div class="score-list">${parts.map((p, i) => `<div><span>${i + 1}. ${esc(TASKS[p.task].name)}</span><span>${partItems(p)} q</span></div>`).join('')}</div>
     <p class="hint">The real test is adaptive: its second half gets easier or harder depending on the first. This practice test uses a fixed mix, so treat the band as a rough estimate.${last ? ` Your last result: band ${bandFromPct(last.v)} (${Math.round(last.v * 100)}%) on ${new Date(last.t).toLocaleDateString()}.` : ''}</p>
-    ${planId === 'ltest' ? '<p class="hint">Use headphones, and keep the screen on. Note-taking on paper is allowed, like the real test.</p>' : ''}
+    ${listen ? '<p class="hint">Use headphones, and keep the screen on. Note-taking on paper is allowed, like the real test.</p>' : ''}
     <div class="row" style="justify-content:center; margin-top:12px;"><button class="btn" id="startTest">Start the test</button></div>`;
   $('#startTest').addEventListener('click', () => startTest(planId, parts, secs));
 }
@@ -2408,7 +2435,7 @@ function startTest(planId, parts, secs) {
   const plan = TEST_PLANS[planId];
   TEST = { planId, plan, parts, i: 0, answers: [], left: Math.round(secs), total: Math.round(secs), running: true, timer: null };
   document.body.classList.add('in-test');
-  if (planId === 'ltest') keepAwake(true);
+  if (hasListening(parts)) keepAwake(true);
   TEST.timer = setInterval(() => {
     if (!TEST || !TEST.running) return;
     TEST.left--;
@@ -2436,7 +2463,7 @@ function paintTestBar() {
 }
 function renderTestPart() {
   const p = TEST.parts[TEST.i], t = TASKS[p.task], last = TEST.i === TEST.parts.length - 1;
-  setHeader(`${TEST.plan.section} test · Part ${TEST.i + 1} of ${TEST.parts.length}`, true);
+  setHeader(`${TEST.plan.short} · Part ${TEST.i + 1} of ${TEST.parts.length}`, true);
   const hdr = $('.sticky-header'); if (hdr) document.documentElement.style.setProperty('--hdr-h', hdr.offsetHeight + 'px');
   useWide(p.task === 'academic' || p.task === 'daily');
   stage.innerHTML = `
@@ -2494,25 +2521,46 @@ function finishTest() {
   const total = graded.reduce((n, g) => n + g.rows.length, 0);
   const pct = total ? right / total : 0, band = bandFromPct(pct);
   // Save: overall test result, each part toward its task's stats, sets used.
+  const typeTally = {};
   graded.forEach(({ p, rows }) => {
     recordQuiet(p.task, rows.filter(r => r.ok).length, rows.length);
     if (p.task !== 'ctw') rows.forEach((r, i) => noteResult(p.task, p.item, i, r.ok));
+    rows.forEach((r, i) => {
+      const ty = qType(p.task, p.task === 'ctw' ? null : reviewQuestion(p.task, p.item, i));
+      noteType(ty, r.ok);
+      const e = typeTally[ty] = typeTally[ty] || { r: 0, t: 0 }; e.t++; if (r.ok) e.r++;
+    });
     const u = TEST_USED[p.task] = TEST_USED[p.task] || {}; u[p.idx] = (u[p.idx] || 0) + 1;
   });
   store.set('toefl26-testused', TEST_USED);
   recordQuiet(planId, right, total);
+  // Section estimates for the Home level card.
+  const secBand = isR => { const g = graded.filter(x => READING_TASKS.has(x.p.task) === isR); const r = g.reduce((n, x) => n + x.rows.filter(y => y.ok).length, 0), t = g.reduce((n, x) => n + x.rows.length, 0); return t ? { b: bandFromPct(r / t), pct: r / t, r, t } : null; };
+  const rB = secBand(true), lB = secBand(false);
+  saveLevel(rB, lB, planId);
   if (typeof markStudyDay === 'function') markStudyDay();
   buzz(pct >= 0.8 ? 25 : [25, 70, 25]);
   // Per task type breakdown
   const byTask = {};
   graded.forEach(({ p, rows }) => { const b = byTask[p.task] = byTask[p.task] || { r: 0, t: 0 }; b.r += rows.filter(r => r.ok).length; b.t += rows.length; });
-  setHeader(`${plan.section} test results`, true);
-  stage.innerHTML = `<h1>${plan.section} test results</h1>
+  setHeader(`${plan.title} results`, true);
+  const goal = +SETTINGS.goal || 0;
+  const typeRows = Object.entries(typeTally).sort((a, b) => a[1].r / a[1].t - b[1].r / b[1].t);
+  stage.innerHTML = `<h1>${plan.title} results</h1>
     <div class="result">${stampHtml(right, total)}</div>
-    <div class="stat-row" style="margin-top:14px;">
+    ${planId === 'diag' ? `<div class="stat-row" style="margin-top:14px;">
+      <div class="stat"><b>${rB.b.toFixed(1)}</b><span>Reading, about ${cefrOf(rB.b)} (${rB.r}/${rB.t})</span></div>
+      <div class="stat"><b>${lB.b.toFixed(1)}</b><span>Listening, about ${cefrOf(lB.b)} (${lB.r}/${lB.t})</span></div></div>
+      <p class="hint">Rough practice estimates on the 1 to 6 scale, from a short set of questions, not official scores. For a closer estimate, take the full Reading and Listening practice tests. Writing and Speaking need a rater, so use <b>Score in Claude</b> on those tasks.</p>`
+    : `<div class="stat-row" style="margin-top:14px;">
       <div class="stat"><b>${band.toFixed(1)}</b><span>estimated band (about ${cefrOf(band)})</span></div>
       <div class="stat"><b>${fmtMin(used)}</b><span>time used of ${fmtMin(TEST.total)}</span></div></div>
-    <p class="hint">A rough practice estimate on the 1 to 6 scale, not an official score. Real bands come from ETS's adaptive test.</p>
+    <p class="hint">A rough practice estimate on the 1 to 6 scale, not an official score. Real bands come from ETS's adaptive test.</p>`}
+    ${goal ? `<p class="hint">Your goal is band ${goal.toFixed(1)}. ${[rB && ['Reading', rB.b], lB && ['Listening', lB.b]].filter(Boolean).map(([n, b]) => b >= goal ? `${n}: goal reached ✓` : `${n}: ${(goal - b).toFixed(1)} to go`).join(' · ')}</p>`
+      : '<p class="hint">Set a target band and your test date in Settings to see how far you have to go.</p>'}
+    <h3>By question type</h3>
+    <div class="score-list">${typeRows.map(([k, v]) => `<div><span>${esc(k)}</span><span>${v.r}/${v.t} (${Math.round(100 * v.r / v.t)}%)</span></div>`).join('')}</div>
+    ${typeRows.length && typeRows[0][1].r < typeRows[0][1].t ? `<p class="hint"><b>Work on first: ${esc(typeRows[0][0])}.</b> ${esc(QT_TIPS[typeRows[0][0]] || '')}</p>` : ''}
     <h3>By task type</h3>
     <div class="score-list">${Object.entries(byTask).map(([k, v]) => `<div><span>${esc(TASKS[k].name)}</span><span>${v.r}/${v.t} (${Math.round(100 * v.r / v.t)}%)</span></div>`).join('')}</div>
     <h3 style="margin-top:22px;">Review every question</h3>
@@ -2529,7 +2577,7 @@ function finishTest() {
           ${x.ok ? '' : `<div class="ask-row">${askBtnHtml(explainPrompt(p.task, p.item, reviewQuestion(p.task, p.item, rows.indexOf(x)) || { q: x.q, right: x.right }, x.yours, p.task === 'respond' ? p.item.items[rows.indexOf(x)].say : ''), 'Ask Claude why ↗', 'btn ghost small')}</div>`}</div>`).join('')}
       </details>`;
     }).join('')}
-    <div class="row" style="justify-content:center; margin-top:20px;"><button class="btn ghost" id="again">Take another test</button><button class="btn" id="back">Back to ${plan.section}</button></div>`;
+    <div class="row" style="justify-content:center; margin-top:20px;"><button class="btn ghost" id="again">${planId === 'diag' ? 'Take it again' : 'Take another test'}</button><button class="btn" id="back">${plan.tab === 'home' ? 'Back to Home' : `Back to ${plan.section}`}</button></div>`;
   $('#again').addEventListener('click', () => go(() => openTest(planId)));
   $('#back').addEventListener('click', goBack);
   TEST = null;
@@ -2663,7 +2711,7 @@ function runMistakes(list, opts = {}) {
     const m = list[i], f = findMistake(m);
     if (!f) { i++; return i < list.length ? card() : done(); }
     const { item, q } = f, t = m.task;
-    setHeader(opts.daily ? dailyTitle() : `Mistake review · ${i + 1}/${list.length}`, true);
+    setHeader(opts.daily ? dailyTitle() : opts.drill ? `${opts.drill} · ${i + 1}/${list.length}` : `Mistake review · ${i + 1}/${list.length}`, true);
     let ctx = '';
     if (t === 'daily') ctx = `<div class="doc"><span class="kind">${esc(item.kind || 'Text')}</span>${esc(item.text)}</div>`;
     else if (t === 'academic' || t === 'skim') ctx = `<details class="guide" open><summary>📄 ${esc(item.title)}</summary><div class="passage" style="margin:10px 0 0;">${item.paras.map((x, k) => `<p><span class="pnum">¶${k + 1}</span>${esc(x)}</p>`).join('')}</div></details>`;
@@ -2671,6 +2719,7 @@ function runMistakes(list, opts = {}) {
     else if (t === 'respond' || item.lines) ctx = `<div class="player" id="mp"></div>`;
     stage.innerHTML = `<div class="pbar static" aria-hidden="true"><i style="width:${Math.round(100 * i / list.length)}%"></i></div>
       <div class="w-eyebrow">${esc(TASKS[t].name)} · ${esc(item.title)}${m.n > 1 ? ` · missed ${m.n} times` : ''}</div>
+      ${opts.drill && i === 0 ? `<div class="notice info" style="margin:0 0 12px;"><b>${esc(opts.drill)}:</b> ${esc(QT_TIPS[opts.drill] || '')}</div>` : ''}
       ${ctx}
       <div id="mq">${mcqHtml([q], 'mr')}</div>
       <div class="row" style="justify-content:center;"><button class="btn" id="mchk">Check</button></div>
@@ -2682,13 +2731,14 @@ function runMistakes(list, opts = {}) {
       if (!chosen) { toast('Choose an answer first.'); return; }
       $('#mchk').remove();
       const ok = gradeMcq([q], 'mr', $('#mq')) === 1;
-      if (ok) { right++; advanceMistake(m.key); }
+      if (opts.drill) { if (ok) right++; else missed.push(m); noteResult(t, item, m.qi, ok); noteType(opts.drill, ok); }
+      else if (ok) { right++; advanceMistake(m.key); }
       else { missed.push(m); MISTAKES[m.key] = Object.assign(MISTAKES[m.key] || m, { box: 1, due: addDays(1), n: (m.n || 1) + 1 }); }
       saveMistakes(); buzz(ok ? 20 : [25, 70, 25]);
-      const after = MISTAKES[m.key];
+      const after = opts.drill ? null : MISTAKES[m.key];
       $('#mfb').innerHTML = `<div class="w-feedback">
         <div class="stamp ${ok ? 'good' : 'low'}" style="font-size:17px;">${ok ? 'Correct' : 'Not yet'}</div>
-        <p class="hint">${ok ? (after ? `Next review in ${MISTAKE_DAYS[after.box]} days.` : 'Cleared from your review list. 🎉') : 'It will come back tomorrow.'}</p>
+        <p class="hint">${opts.drill ? (ok ? '' : 'Added to your mistake review. It comes back tomorrow.') : ok ? (after ? `Next review in ${MISTAKE_DAYS[after.box]} days.` : 'Cleared from your review list. 🎉') : 'It will come back tomorrow.'}</p>
         ${item.lines ? `<details class="transcript" style="text-align:left;"><summary>Transcript</summary>${item.lines.map(l => `<p>${item.lines.length > 1 ? `<b>${esc(l.name || 'Speaker')}:</b> ` : ''}${esc(l.t)}</p>`).join('')}</details>` : ''}
         <div class="row" style="justify-content:center; margin-top:10px;">
           ${ok ? '' : askBtnHtml(explainPrompt(t, item, q, q.options[+chosen.value], t === 'respond' ? item.items[m.qi].say : t === 'vic' ? item.items[m.qi].text.replace(/\{\{|\}\}|\[\[|\]\]/g, '') : ''), 'Ask Claude why ↗', 'btn ghost')}
@@ -2699,6 +2749,16 @@ function runMistakes(list, opts = {}) {
   const done = () => {
     if (opts.onDone) return opts.onDone(right, list.length);
     markStudyDay();
+    if (opts.drill) {
+      setHeader(opts.drill, true);
+      stage.innerHTML = `<div class="result">${stampHtml(right, list.length)}</div>
+        <p class="sub" style="text-align:center;">${missed.length ? `${missed.length} missed question${missed.length > 1 ? 's' : ''} added to your mistake review.` : 'All correct.'}</p>
+        <div class="notice info"><b>Tip:</b> ${esc(QT_TIPS[opts.drill] || '')}</div>
+        <div class="row" style="justify-content:center; margin-top:16px;"><button class="btn ghost" id="more">Practice more</button><button class="btn" id="back">Done</button></div>`;
+      $('#more').addEventListener('click', () => go(() => runTypeDrill(opts.drill)));
+      $('#back').addEventListener('click', goBack);
+      return;
+    }
     setHeader('Mistake review', true);
     const left = dueMistakes().length;
     stage.innerHTML = `<div class="result">${stampHtml(right, list.length)}</div>
@@ -2708,6 +2768,107 @@ function runMistakes(list, opts = {}) {
     $('#back').addEventListener('click', goBack);
   };
   card();
+}
+
+// ---------- Question types: find weak spots ----------
+// Every checked question is sorted into a type from its wording. The last
+// 40 answers of each type give its accuracy.
+const QT_TIPS = {
+  'Main idea': 'Ask what the whole text is about. Wrong options are often true details that are too narrow.',
+  'Detail': 'Find the exact spot in the text. The right option usually says the same thing in different words.',
+  'Vocabulary': 'Reread the sentence with each option in place of the word. Keep the one that keeps the meaning.',
+  'Inference': "The answer isn't stated, but it must follow from what is. Reject options that go further than the text.",
+  'Purpose': 'Ask why the writer or speaker includes this point: as an example, a contrast, or support for a claim.',
+  'NOT / EXCEPT': "Check each option against the text. Three are there; the answer is the one that isn't.",
+  'Attitude': 'Listen for opinion words and tone: praise, doubt ("I\'m not convinced"), or a hedge ("in some cases").',
+  'Locating info': 'Use the first sentence of each paragraph to decide where a topic is discussed.',
+  'Best response': "Pick the reply that fits the speaker's purpose, not one that just repeats their words.",
+  'Predicting next': 'Transition words signal what comes next: a contrast, an example, or a result.',
+  'Word completion': 'Use the grammar around the blank (article, verb form, plural) as well as the meaning.'
+};
+let QTYPES = store.get('toefl26-qtypes', {});
+function qType(task, q) {
+  if (task === 'ctw') return 'Word completion';
+  if (task === 'respond') return 'Best response';
+  if (task === 'vic') return 'Vocabulary';
+  if (task === 'trans') return 'Predicting next';
+  const s = (q && q.q) || '';
+  if (/closest in meaning|most likely mean|\bthe (word|phrase) "/i.test(s)) return 'Vocabulary';
+  if (/\bNOT\b|\bEXCEPT\b/.test(s)) return 'NOT / EXCEPT';
+  if (/attitude|opinion|overall view|feel about/i.test(s)) return 'Attitude';
+  if (/where would you|which paragraph/i.test(s)) return 'Locating info';
+  if (/mainly (about|organized)|main (idea|point|topic|purpose)|primarily about/i.test(s)) return 'Main idea';
+  if (/why (does|did) the (author|professor|speaker|writer|lecturer) (mention|compare|say|describe|include|discuss|give)|why did .+ write|purpose of the (final|last|first|second|third)|significance/i.test(s)) return 'Purpose';
+  if (/infer|impl(y|ies)|probably|most likely|\bmight\b/i.test(s)) return 'Inference';
+  return 'Detail';
+}
+function noteType(type, ok) {
+  const e = QTYPES[type] = QTYPES[type] || { h: '' };
+  e.h = (e.h + (ok ? '1' : '0')).slice(-40);
+  store.set('toefl26-qtypes', QTYPES);
+}
+// Types with enough answers to judge, weakest first.
+function typeStats(min = 3) {
+  return Object.entries(QTYPES).map(([k, e]) => ({ k, n: e.h.length, pct: e.h.length ? [...e.h].filter(c => c === '1').length / e.h.length : 0 }))
+    .filter(x => x.n >= min).sort((a, b) => a.pct - b.pct || b.n - a.n);
+}
+// Eight questions of one type from the practice sets.
+function typeQuestions(type) {
+  const out = [];
+  REVIEWABLE.forEach(task => pool(task).forEach(item => {
+    if (!item || !item.title) return;
+    const n = task === 'respond' || task === 'vic' ? (item.items || []).length : task === 'trans' ? (item.predict || []).length : (item.questions || []).length;
+    for (let qi = 0; qi < n; qi++) { const q = reviewQuestion(task, item, qi); if (q && qType(task, q) === type) out.push({ task, title: item.title, qi, n: 0 }); }
+  }));
+  return out;
+}
+function runTypeDrill(type) {
+  // Word completion lives in its own task; everything else is a mixed set.
+  if (type === 'Word completion') return openTask('ctw');
+  const list = shuffle(typeQuestions(type)).slice(0, 8);
+  runMistakes(list, { drill: type });
+}
+
+// ---------- Level and goal ----------
+// The latest estimate for each section, from the level check or a full test.
+function saveLevel(r, l, src) {
+  const lv = store.get('toefl26-level', null) || {}, t = Date.now();
+  if (r) lv.r = { b: r.b, t, src, full: src === 'rtest' };
+  if (l) lv.l = { b: l.b, t, src, full: src === 'ltest' };
+  store.set('toefl26-level', lv);
+}
+function daysUntil(d) {
+  if (!d) return null;
+  const ms = new Date(d + 'T00:00:00') - new Date(dayStr() + 'T00:00:00');
+  return isNaN(ms) ? null : Math.round(ms / 864e5);
+}
+function levelCardHtml() {
+  const lv = store.get('toefl26-level', null), goal = +SETTINGS.goal || 0, days = daysUntil(SETTINGS.testDate);
+  const countdown = days != null && days >= 0 ? `<span class="lv-count">${days === 0 ? 'Test day. Good luck!' : `${days} day${days > 1 ? 's' : ''} to your test`}</span>` : '';
+  if (!lv || (!lv.r && !lv.l)) return `<button class="home-card" id="levelBtn">
+      <span class="hc-kicker">Level check · about 15 min${countdown ? ' · ' + countdown : ''}</span>
+      <span class="hc-title">Find your starting level</span>
+      <span class="hc-sub">A short Reading and Listening mix gives a rough band for each, and shows which question types to work on.</span></button>`;
+  const cell = (name, e) => {
+    if (!e) return `<div class="lv-cell"><span class="lv-name">${name}</span><b>—</b><span class="lv-gap">not checked yet</span></div>`;
+    const gap = goal ? (e.b >= goal ? '<span class="lv-gap ok">goal reached ✓</span>' : `<span class="lv-gap">${(goal - e.b).toFixed(1)} to go</span>`) : `<span class="lv-gap">about ${cefrOf(e.b)}</span>`;
+    return `<div class="lv-cell"><span class="lv-name">${name}</span><b>${e.b.toFixed(1)}</b>${gap}</div>`;
+  };
+  const newest = Math.max(lv.r ? lv.r.t : 0, lv.l ? lv.l.t : 0);
+  return `<div class="level-card">
+      <div class="lv-head"><span class="hc-kicker">Your level · rough estimate${goal ? ` · goal ${goal.toFixed(1)}` : ''}</span>${countdown}</div>
+      <div class="lv-row">${cell('Reading', lv.r)}${cell('Listening', lv.l)}</div>
+      <p class="lv-note">Band 1 to 6, from your practice tests (latest ${new Date(newest).toLocaleDateString()}). Writing and Speaking need a rater: use <b>Score in Claude</b> on those tasks.</p>
+      <div class="row" style="margin:0;"><button class="btn ghost small" id="levelBtn">Retake level check</button><button class="btn ghost small" id="goalBtn">${goal ? 'Change goal' : 'Set a goal'}</button></div>
+    </div>`;
+}
+function weakCardHtml() {
+  const w = typeStats(5)[0];
+  if (!w || w.pct >= 0.8) return '';
+  return `<button class="home-card" id="weakBtn" data-type="${esc(w.k)}">
+      <span class="hc-kicker">Weak spot</span>
+      <span class="hc-title">${esc(w.k)} questions · ${Math.round(w.pct * 100)}% right</span>
+      <span class="hc-sub">${w.k === 'Word completion' ? 'Practice Complete the Words.' : 'Practice a short set of them, with a strategy tip.'}</span></button>`;
 }
 
 // ---------- Backup and restore ----------
