@@ -26,6 +26,7 @@ let LOG = store.get('toefl26-log', []);
 function logActivity(id) { LOG.push({ t: Date.now(), id }); LOG = LOG.slice(-600); store.set('toefl26-log', LOG); }
 function record(id, pts, tot) {
   logActivity(id);
+  if (current && current.mock) current.mockScore = { pts, tot };
   if (typeof markStudyDay === 'function') markStudyDay();
   if (current && current.daily && DAILY && DAILY.steps[DAILY.i] && DAILY.steps[DAILY.i].id === id) dailyResult(pts, tot);
   buzz(tot && pts / tot >= 0.8 ? 25 : [25, 70, 25]);
@@ -725,6 +726,7 @@ Object.defineProperty(TASKS.vic, 'gen', { get() {
 } });
 TASKS.rtest = { section: 'Reading', name: 'Full Reading test', blurb: 'Adaptive, like the real test: all three task types, about 25 minutes. Estimated band at the end.', test: true };
 TASKS.ltest = { section: 'Listening', name: 'Full Listening test', blurb: 'Adaptive, like the real test: all four task types, each recording plays once. Estimated band at the end.', test: true };
+TASKS.mock = { section: 'Full test', name: 'Full practice test', blurb: 'All four sections, like test day. About 90 minutes, with an overall band.', test: true };
 TASKS.diag = { section: 'Level check', name: 'Level check', blurb: 'A 15-minute mix of Reading and Listening with a rough band for each.', test: true };
 const SECTIONS = [
   { name: 'Reading', meta: 'about 30 min, adaptive', tasks: ['ctw', 'daily', 'academic'] },
@@ -832,6 +834,7 @@ $('#backBtn').addEventListener('click', goBack);
 $('#settingsBtn').addEventListener('click', () => go(renderSettings));
 
 function renderTab(tabId) {
+  MOCK = null;
   currentTab = TABS.some(t => t.id === tabId) ? tabId : 'home';
   screen = 'tab'; keepAwake(false);
   paintTabbar();
@@ -911,6 +914,10 @@ function renderHomeTab() {
       <span class="hc-kicker">Continue</span>
       <span class="hc-title">${esc(TASKS[last.id].name)}</span>
       <span class="hc-sub">${esc(tabOf(last.id).label)}, set ${(last.idx || 0) + 1}</span></button>` : ''}
+    <button class="home-card" id="mockBtn">
+      <span class="hc-kicker">Full practice test · about 90 min</span>
+      <span class="hc-title">All four sections, like test day</span>
+      <span class="hc-sub">Reading, Listening, Writing, and Speaking, with a band for each and an overall band.</span></button>
     <button class="home-card" id="sugBtn">
       <span class="hc-kicker">Suggested next</span>
       <span class="hc-title">${esc(TASKS[sug.id].name)}</span>
@@ -930,6 +937,7 @@ function renderHomeTab() {
   const wb = $('#wordsDue'); if (wb) wb.addEventListener('click', () => go(() => renderTab('words')));
   const mb = $('#mistakesDue'); if (mb) mb.addEventListener('click', () => go(() => runMistakes(shuffle(dueMistakes()).slice(0, 10))));
   $('#sugBtn').addEventListener('click', () => go(() => openTask(sug.id)));
+  $('#mockBtn').addEventListener('click', () => go(openMock));
   $('#levelBtn').addEventListener('click', () => go(() => openTest('diag')));
   bindPlanCard();
   const gb = $('#goalBtn'); if (gb) gb.addEventListener('click', () => go(renderSettings));
@@ -1127,14 +1135,15 @@ function openTask(id, idx, opts = {}) {
   const list = pool(id);
   if (idx == null) idx = (CURSOR[id] || 0) % list.length;
   idx = Math.min(idx, list.length - 1);
-  const daily = !!(opts.daily && DAILY);
-  current = { id, idx, daily };
+  const daily = !!(opts.daily && DAILY), mock = !!(opts.mock && MOCK);
+  current = { id, idx, daily, mock };
+  SET_LOG = [];
   CURSOR[id] = idx; store.set('toefl26-cursor', CURSOR);
   store.set('toefl26-last', { id, idx });
   const t = TASKS[id], tab = tabOf(id);
   if (tab) { currentTab = tab.id; paintTabbar(); }
   if (/Listening|Speaking/.test(t.section)) keepAwake(true);
-  setHeader(daily ? dailyTitle() : t.name, true);
+  setHeader(daily ? dailyTitle() : mock ? mockTitle() : t.name, true);
   const audioTask = t.section === 'Listening' || t.section === 'Speaking' || t.section === 'Listening strategies' || id === 'build';
   stage.innerHTML = `
     <div class="task-head">
@@ -1148,7 +1157,8 @@ function openTask(id, idx, opts = {}) {
     <h1>${t.name}</h1>
     <p class="task-how">${t.how}</p>
     ${SETTINGS.koInstr && KO_HOW[id] ? `<p class="task-how ko" lang="ko">${KO_HOW[id]}</p>` : ''}
-    ${daily ? `<div class="set-bar"><span class="ttl"><span>Daily 15 · ${esc(DAILY.steps[DAILY.i].label)}</span>${esc(list[idx].title || '')}</span></div>` : t.noSets ? '' : `<div class="set-bar">
+    ${lessonHtml(id)}
+    ${mock ? `<div class="set-bar"><span class="ttl"><span>${esc(mockTitle())}</span>${esc(list[idx].title || '')}</span></div>` : daily ? `<div class="set-bar"><span class="ttl"><span>Daily 15 · ${esc(DAILY.steps[DAILY.i].label)}</span>${esc(list[idx].title || '')}</span></div>` : t.noSets ? '' : `<div class="set-bar">
       <span class="ttl"><span>Set ${idx + 1} of ${list.length}</span>${esc(list[idx].title || '')}</span>
       <span class="row" style="gap:6px;">
         <button class="btn ghost small" data-act="prev" ${idx === 0 ? 'disabled' : ''} aria-label="Previous set">◀ Previous</button>
@@ -1161,7 +1171,7 @@ function openTask(id, idx, opts = {}) {
   $('[data-act=smaller]').addEventListener('click', () => stepText(-1));
   $('[data-act=bigger]').addEventListener('click', () => stepText(1));
   const vb = $('[data-act=voices]'); if (vb) vb.addEventListener('click', () => go(renderSettings));
-  if (!t.noSets && !daily) {
+  if (!t.noSets && !daily && !mock) {
     $('[data-act=next]').addEventListener('click', () => go(() => openTask(id, (idx + 1) % pool(id).length)));
     $('[data-act=prev]').addEventListener('click', () => { if (idx > 0) go(() => openTask(id, idx - 1)); });
     $('[data-act=gen]').addEventListener('click', () => generateSet(id));
@@ -1223,7 +1233,8 @@ function gradeMcq(qs, pfx, root, track) {
     if (track) {
       const qi = track.qi ? track.qi(i) : i;
       noteResult(track.task, track.item, qi, ok);
-      noteType(qType(track.task, reviewQuestion(track.task, track.item, qi) || q), ok);
+      const qt = qType(track.task, reviewQuestion(track.task, track.item, qi) || q);
+      noteType(qt, ok); SET_LOG.push({ type: qt, ok });
       if (!ok && fs && !fs.querySelector('[data-ask]')) {
         const extra = track.task === 'respond' ? track.item.items[qi].say : track.task === 'vic' ? track.item.items[qi].text.replace(/\{\{|\}\}|\[\[|\]\]/g, '') : '';
         const rq = reviewQuestion(track.task, track.item, qi) || q;
@@ -1262,6 +1273,12 @@ function openSheet(title, html) {
 function closeSheet() { const sh = $('.sheet'); if (!sh) return false; sh.remove(); document.body.classList.remove('sheet-open'); return true; }
 function afterCheck(body, id, extraHtml = '') {
   const res = $('[data-result]', body);
+  if (current.mock && MOCK) {
+    res.insertAdjacentHTML('beforeend', `<div class="row" style="justify-content:center; margin-top:16px;"><button class="btn" data-mocknext>Continue ▶</button></div>`);
+    $('[data-mocknext]', body).addEventListener('click', () => mockNext(id, current.mockScore || { pts: 0, tot: 1 }));
+    return;
+  }
+  extraHtml = fixCardHtml(id) + extraHtml;
   if (current.daily && DAILY && DAILY.steps[DAILY.i] && DAILY.steps[DAILY.i].id === id) {
     if (!DAILY.results[DAILY.i]) dailyResult(0, 0);
     res.insertAdjacentHTML('beforeend', `${extraHtml}<div class="row" style="justify-content:center; margin-top:16px;"><button class="btn" data-nextset>${dailyNextLabel()}</button></div>`);
@@ -1317,6 +1334,7 @@ function renderCTW(item, body, id) {
       $$(`.ctw-box[data-w="${i}"]`, body).forEach(b => { b.disabled = true; b.classList.add(ok ? 'ok' : 'bad'); });
       if (!ok) $(`.ctw-word[data-word="${i}"]`, body).insertAdjacentHTML('beforeend', `<span class="fix">${esc(blanks[i])}</span>`);
     });
+    current.fix = ctwFix(blanks, ins.map(x => x.value), item.text);
     record(id, right, blanks.length);
     $('[data-result]', body).innerHTML = stampHtml(right, blanks.length);
     const full = esc(item.text).replace(/\[([A-Za-z']+)\]/g, (m, w) => `<b class="target">${w}</b>`);
@@ -1861,6 +1879,8 @@ function renderBuild(item, body, id) {
       const c = $('.correct-ans', wrap); c.hidden = false;
       c.innerHTML = `${ok ? '' : `Correct: <b>${esc(st.it.answer + (st.it.end || '.'))}</b>`}${st.it.why ? `<div class="why">${esc(st.it.why)}</div>` : ''}`;
     });
+    const miss = states.filter(st => !$(`[data-bi="${states.indexOf(st)}"] .answer-line`, body).classList.contains('ok'));
+    current.fix = miss.length ? { title: `Word order (${miss.length} missed)`, tip: miss[0].it.why || 'Find the subject and main verb first, then place adverbs, prepositions, and articles.' } : { all: true, title: 'Nothing to fix in this set', tip: 'Every sentence was right. Try the next set and aim to finish faster.' };
     record(id, r, states.length); $('[data-result]', body).innerHTML = stampHtml(r, states.length); afterCheck(body, id);
   });
 }
@@ -1887,19 +1907,38 @@ function writingTask(body, id, item, promptHtml, taskDesc, minWords) {
     <textarea class="write" id="ta" placeholder="Write your response here…" spellcheck="false"></textarea>
     <div class="write-bar"><span id="wc">0 words</span><span>Target: ${minWords}+ words</span></div>
     <div class="row">
-      <button class="btn ai-only" id="fbBtn">Score my writing with Claude</button>
-      <button class="btn ghost" id="askBtn">Score in Claude ↗</button>
+      ${current.mock ? '<button class="btn" id="submitBtn">Submit and continue ▶</button>' : `<button class="btn" id="chkBtn">✓ Check my writing</button>
       ${item.model ? '<button class="btn ghost" id="modelBtn">Show model answer</button>' : ''}
-      <button class="btn ghost small" id="clearBtn">Clear</button>
+      <button class="btn ghost ai-only" id="fbBtn">Score with Claude</button>
+      <button class="btn ghost" id="askBtn">Score in Claude ↗</button>
+      <button class="btn ghost small" id="clearBtn">Clear</button>`}
     </div>
     <div id="out"></div>`;
   const ta = $('#ta', body), wc = $('#wc', body), out = $('#out', body);
   let counted = false; const countOnce = () => { if (!counted && wordCount(ta.value) >= 20) { counted = true; recordAI(id, null); } };
-  const timer = makeTimer($('#tm', body), TASKS[id].timed, () => toast("Time's up! On the real test your response is submitted now."));
-  ta.value = store.get(draftKey, '');
+  let submitted = false;
+  const submit = () => {
+    if (submitted) return; submitted = true; timer.stop();
+    const text = ta.value.trim(), checks = writingChecks(id, item, text);
+    const pts = text ? checks.filter(c => c.ok).length : 0;
+    store.set(draftKey, '');
+    mockNext(id, { pts, tot: checks.length, text, checks });
+  };
+  const timer = makeTimer($('#tm', body), TASKS[id].timed, () => { if (current.mock) { toast("Time's up. Your response has been submitted."); submit(); } else toast("Time's up! On the real test your response is submitted now."); });
+  ta.value = current.mock ? '' : store.get(draftKey, '');
   const upd = () => { wc.textContent = `${wordCount(ta.value)} words`; store.set(draftKey, ta.value); };
   upd();
-  ta.addEventListener('input', () => { if (!timer.running) timer.start(); upd(); });
+  ta.addEventListener('input', () => { if (!timer.running && !submitted) timer.start(); upd(); });
+  if (current.mock) { timer.start(); $('#submitBtn', body).addEventListener('click', submit); return; }
+  $('#chkBtn', body).addEventListener('click', () => {
+    const text = ta.value.trim();
+    if (wordCount(text) < 20) { out.innerHTML = '<div class="notice err">Write at least a few sentences first.</div>'; return; }
+    timer.stop(); countOnce();
+    const checks = writingChecks(id, item, text), miss = checks.find(c => !c.ok);
+    current.fix = miss ? { title: miss.label, tip: miss.fix } : { all: true, title: 'Every check passed', tip: 'Now compare with the model answer for ideas and phrasing.' };
+    $$('.checklist, .fix-card', out).forEach(x => x.remove());
+    out.insertAdjacentHTML('afterbegin', fixCardHtml(id) + checklistHtml(checks));
+  });
   $('#clearBtn', body).addEventListener('click', () => { ta.value = ''; upd(); });
   $('#askBtn', body).addEventListener('click', e => {
     const text = ta.value.trim();
@@ -1911,7 +1950,7 @@ function writingTask(body, id, item, promptHtml, taskDesc, minWords) {
     e.target.disabled = true; countOnce();
     out.insertAdjacentHTML('beforeend', `<div class="lbl" style="margin-top:16px;">Model answer (${wordCount(item.model)} words)</div><div class="model">${esc(item.model)}</div>`);
   });
-  if (!sample) out.innerHTML = `<p class="hint" style="margin-top:14px;">Self-check: did you cover every point, use a clear opening and closing, connect your ideas with transitions, and proofread for verb tense and articles?</p>`;
+  out.innerHTML = `<p class="hint" style="margin-top:14px;">When you finish, tap <b>Check my writing</b> for an instant checklist: length, every required point, structure, linking words, and common errors.</p>`;
   $('#fbBtn', body).addEventListener('click', async e => {
     const text = ta.value.trim();
     if (wordCount(text) < 20) { out.innerHTML = '<div class="notice err">Write at least a few sentences first so Claude has something to score.</div>'; return; }
@@ -1963,7 +2002,7 @@ function renderDiscuss(item, body, id) {
 
 // ---------- Speaking: Listen and Repeat ----------
 function renderRepeat(item, body, id) {
-  let i = 0; const results = [];
+  let i = 0; const results = [], missedTok = [];
   let rec = null; onLeave(() => rec && rec.stop());
   const intro = () => {
     body.innerHTML = `<div class="prompt-box">${esc(item.context)}</div>
@@ -2009,6 +2048,7 @@ function renderRepeat(item, body, id) {
       let ti = 0;
       const shown = words.map(w => { const tk = tokens(w); const ok = tk.every((_, k) => hit[ti + k]); ti += tk.length; return `<span class="${ok ? 'hit' : 'miss'}">${esc(w)}</span>`; }).join(' ');
       const pct = n ? matched / n : 0; results.push(pct);
+      tokens(target).forEach((w, k) => { if (!hit[k]) missedTok.push(w); });
       zone.innerHTML = `<div class="diff">${shown}</div><p class="heard">We heard: "${esc(said || '(nothing)')}"</p>
         <div class="row"><span class="stamp ${pct >= 0.9 ? 'good' : pct >= 0.6 ? 'mid' : 'low'}" style="font-size:16px;">${Math.round(pct * 100)}%</span>
         <button class="btn ghost" id="again">Try again</button><button class="btn" id="nx">${i + 1 < item.sentences.length ? 'Next sentence' : 'See results'}</button></div>`;
@@ -2021,6 +2061,14 @@ function renderRepeat(item, body, id) {
   };
   const finish = () => {
     const avg = results.reduce((a, b) => a + b, 0) / (results.length || 1);
+    const SMALLW = new Set(['the', 'a', 'an', 'to', 'of', 'in', 'on', 'at', 'for', 'and', 'is', 'are', 'was', 'be', 'it', 'your', 'you', 'with', 'by', 'from', 'up', 'can', 'will']);
+    const half = Math.ceil(results.length / 2), mean = a => a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0;
+    const shortAvg = mean(results.slice(0, half)), longAvg = mean(results.slice(half));
+    const small = missedTok.filter(w => SMALLW.has(w));
+    current.fix = avg >= 0.95 ? { all: true, title: 'Nothing to fix in this set', tip: 'Almost every word was right. Try the next set at a faster audio speed.' }
+      : small.length >= missedTok.length / 2 && missedTok.length ? { title: 'Small words', tip: `You dropped short words like ${[...new Set(small)].slice(0, 4).map(w => `"${w}"`).join(', ')}. They're unstressed and quick, so listen for them, and say them lightly but clearly.` }
+      : longAvg < shortAvg - 0.15 ? { title: 'Long sentences', tip: 'Your score drops on the longer sentences. Hear them in two or three chunks of meaning (who / did what / where) and repeat chunk by chunk.' }
+      : { title: 'Key words', tip: `You missed or changed words like ${[...new Set(missedTok)].slice(0, 4).map(w => `"${w}"`).join(', ')}. Replay the sentence and say it along with the audio (shadowing).` };
     record(id, Math.round(avg * item.sentences.length * 10) / 10, item.sentences.length);
     body.innerHTML = `<div class="result">${stampHtml(Math.round(avg * 100), 100).replace(' / 100', '%')}</div>
       <div class="score-list" style="margin-top:18px;">${item.sentences.map((s, k) => `<div><span>${k + 1}. ${esc(s.length > 50 ? s.slice(0, 48) + '…' : s)}</span><span>${Math.round((results[k] || 0) * 100)}%</span></div>`).join('')}</div>
@@ -2033,7 +2081,7 @@ function renderRepeat(item, body, id) {
 
 // ---------- Speaking: Take an Interview ----------
 function renderInterview(item, body, id) {
-  const answers = item.questions.map(() => ''), voices = item.questions.map(() => null);
+  const answers = item.questions.map(() => ''), voices = item.questions.map(() => null), vsecs = item.questions.map(() => null);
   let q = 0, rec = null, vrec = null; onLeave(() => { rec && rec.stop(); vrec && vrec.stop(); });
   // Text (speech-to-text), Voice (a recording to replay), or both. Phones
   // often can't do both at once, so Android starts with text only.
@@ -2067,10 +2115,11 @@ function renderInterview(item, body, id) {
         <textarea class="write" id="ta" style="min-height:120px; margin-top:10px;" placeholder="${srAvailable() ? 'Your words appear here. You can fix transcription errors.' : 'Optional: type what you said or your key points.'}"></textarea>
         <div class="row" style="margin-top:10px;"><button class="btn" id="nx">${q + 1 < item.questions.length ? 'Next question' : 'Finish'}</button></div>`;
       const ta = $('#ta', body);
-      const stopVoice = () => { if (vrec) { const r = vrec, k = q; vrec = null; r.stop().then(url => { voices[k] = url; }); } };
+      let vstart = 0;
+      const stopVoice = () => { if (vrec) { const r = vrec, k = q; vrec = null; vsecs[k] = (Date.now() - vstart) / 1000; r.stop().then(url => { voices[k] = url; }); } };
       const timer = makeTimer($('#tm', body), 45, () => { rec && rec.stop(); stopVoice(); $('#micLbl', body).textContent = 'Time is up'; });
       timer.start();
-      if (wantVoice()) startRecording().then(r => { vrec = r; }).catch(() => { const l = $('#micLbl', body); if (l) l.textContent = 'Microphone blocked: answer out loud'; });
+      if (wantVoice()) startRecording().then(r => { vrec = r; vstart = Date.now(); }).catch(() => { const l = $('#micLbl', body); if (l) l.textContent = 'Microphone blocked: answer out loud'; });
       if (srAvailable() && wantText()) {
         rec = listen({
           onText: t => { ta.value = t; },
@@ -2084,11 +2133,21 @@ function renderInterview(item, body, id) {
   };
   const review = () => {
     const any = answers.some(a => a);
+    const allChecks = item.questions.flatMap((_, k) => speakingChecks(answers[k], answers[k] ? null : vsecs[k]));
+    if (current.mock && MOCK) {
+      const pts = allChecks.filter(c => c.ok).length;
+      return mockNext(id, { pts, tot: allChecks.length || 1, checks: allChecks, answers: answers.slice() });
+    }
+    const missCount = {}; allChecks.forEach(c => { if (!c.ok) { const k = c.label.replace(/[:(].*$/, '').trim(); missCount[k] = missCount[k] || { n: 0, c }; missCount[k].n++; } });
+    const topMiss = Object.values(missCount).sort((a, b) => b.n - a.n)[0];
+    current.fix = topMiss ? { title: `${topMiss.c.label.replace(/[:(].*$/, '').trim()} (${topMiss.n} of ${item.questions.length} answers)`, tip: topMiss.c.fix } : { all: true, title: 'Every check passed', tip: 'Strong structure. Next, record yourself and listen for clear pronunciation and natural pauses.' };
     body.innerHTML = `<h2 style="margin-bottom:10px;">Your answers</h2>
       ${voices.some(Boolean) ? '<p class="hint">Play your recordings back. Listen for long pauses, filler words (um, uh), and words that were hard to understand.</p>' : ''}
       ${item.questions.map((qq, k) => `<div class="prompt-box"><b>${k + 1}. ${esc(qq)}</b>${voices[k] ? `<audio controls src="${voices[k]}" preload="auto" style="display:block; width:100%; margin-top:8px;"></audio>` : ''}<p style="margin:8px 0 0;">${answers[k] ? esc(answers[k]) : wantText() ? '<span class="hint">(no transcript)</span>' : ''}</p>${answers[k] ? `<p class="hint" style="margin:6px 0 0;">${wordCount(answers[k])} words</p>` : ''}</div>`).join('')}
+      ${fixCardHtml(id)}
+      ${item.questions.map((qq, k) => { const c = speakingChecks(answers[k], answers[k] ? null : vsecs[k]); return c.length ? checklistHtml(c, `Answer ${k + 1} checklist`) : ''; }).join('')}
       <p class="hint">Strong answers usually run 80–120 words in 45 seconds, give a clear opinion, and add a reason or example.</p>
-      <div class="row"><button class="btn ai-only" id="fbBtn" ${any ? '' : 'disabled'}>Score my answers with Claude</button>${any ? askBtnHtml(`You are an experienced, fair TOEFL iBT speaking rater. Below are my answers to the TOEFL iBT (2026 format) "Take an Interview" task. Each answer was spoken for about 45 seconds and turned into text by speech recognition, so ignore obvious transcription glitches and missing punctuation. Score me on the 0 to 5 scale (half points allowed).
+      <div class="row"><button class="btn ghost ai-only" id="fbBtn" ${any ? '' : 'disabled'}>Score with Claude</button>${any ? askBtnHtml(`You are an experienced, fair TOEFL iBT speaking rater. Below are my answers to the TOEFL iBT (2026 format) "Take an Interview" task. Each answer was spoken for about 45 seconds and turned into text by speech recognition, so ignore obvious transcription glitches and missing punctuation. Score me on the 0 to 5 scale (half points allowed).
 
 Context: ${item.intro}
 
@@ -2646,7 +2705,8 @@ function testSecs(planId, parts) {
 }
 const fmtMin = s => `${Math.floor(s / 60)}:${String(Math.round(s) % 60).padStart(2, '0')}`;
 
-function openTest(planId) {
+function openTest(planId, opts = {}) {
+  if (planId === 'mock') return openMock();
   enterSub();
   const plan = TEST_PLANS[planId];
   currentTab = plan.tab; paintTabbar();
@@ -2664,12 +2724,13 @@ function openTest(planId) {
     <p class="hint">${plan.stage1 ? 'Like the real test, this one is adaptive: your score on the first part decides whether the second part is easier or harder. Treat the band as a rough estimate.' : 'The real test is adaptive: its second half gets easier or harder depending on the first. This short check uses a fixed mix, so treat the bands as rough estimates.'}${last ? ` Your last result: band ${bandFromPct(last.v)} (${Math.round(last.v * 100)}%) on ${new Date(last.t).toLocaleDateString()}.` : ''}</p>
     ${listen ? '<p class="hint">Use headphones, and keep the screen on. Note-taking on paper is allowed, like the real test.</p>' : ''}
     <div class="row" style="justify-content:center; margin-top:12px;"><button class="btn" id="startTest">Start the test</button></div>`;
-  $('#startTest').addEventListener('click', () => startTest(planId, parts, secs));
+  if (opts.mock && MOCK) setHeader(mockTitle(), true);
+  $('#startTest').addEventListener('click', () => startTest(planId, parts, secs, !!(opts.mock && MOCK)));
 }
 
-function startTest(planId, parts, secs) {
+function startTest(planId, parts, secs, mock = false) {
   const plan = TEST_PLANS[planId];
-  TEST = { planId, plan, parts, i: 0, answers: [], left: Math.round(secs), total: Math.round(secs), running: true, timer: null };
+  TEST = { planId, plan, parts, i: 0, answers: [], left: Math.round(secs), total: Math.round(secs), running: true, timer: null, mock };
   document.body.classList.add('in-test');
   if (hasListening(parts)) keepAwake(true);
   TEST.timer = setInterval(() => {
@@ -2824,6 +2885,15 @@ function finishTest() {
       </details>`;
     }).join('')}
     <div class="row" style="justify-content:center; margin-top:20px;"><button class="btn ghost" id="again">${planId === 'diag' ? 'Take it again' : 'Take another test'}</button><button class="btn" id="back">${plan.tab === 'home' ? 'Back to Home' : `Back to ${plan.section}`}</button></div>`;
+  if (TEST.mock && MOCK) {
+    // Full test: keep the review for the end, then move on.
+    const rv = document.createElement('div'); rv.innerHTML = stage.innerHTML;
+    const btns = $('#again', rv); if (btns) btns.parentElement.remove();
+    $$('h1', rv).forEach(h => h.remove());
+    const res = { band, pct, pts: right, tot: total, path };
+    TEST = null;
+    return mockNext(planId, res, rv.innerHTML);
+  }
   $('#again').addEventListener('click', () => go(() => openTest(planId)));
   $('#back').addEventListener('click', goBack);
   TEST = null;
@@ -3099,14 +3169,14 @@ function levelCardHtml() {
   const cell = (name, e) => {
     if (!e) return `<div class="lv-cell"><div class="lv-ring"><b>—</b></div><div class="lv-txt"><span class="lv-name">${name}</span><span class="lv-gap">not checked yet</span></div></div>`;
     const gap = goal ? (e.b >= goal ? '<span class="lv-gap ok">goal reached ✓</span>' : `<span class="lv-gap">${(goal - e.b).toFixed(1)} to go</span>`) : `<span class="lv-gap">about ${cefrOf(e.b)}</span>`;
-    const ring = name === 'Reading' ? SKILL_COLORS.reading : SKILL_COLORS.listening;
+    const ring = SKILL_COLORS[name.toLowerCase()] || SKILL_COLORS.reading;
     return `<div class="lv-cell"><div class="lv-ring" style="--p:${(e.b / 6).toFixed(3)}; --ring:${ring}" role="img" aria-label="${name} band ${e.b.toFixed(1)} of 6"><b>${e.b.toFixed(1)}</b></div><div class="lv-txt"><span class="lv-name">${name}</span>${gap}</div></div>`;
   };
   const newest = Math.max(lv.r ? lv.r.t : 0, lv.l ? lv.l.t : 0);
   return `<div class="level-card">
       <div class="lv-head"><span class="hc-kicker">Your level · rough estimate${goal ? ` · goal ${goal.toFixed(1)}` : ''}</span>${countdown}</div>
-      <div class="lv-row">${cell('Reading', lv.r)}${cell('Listening', lv.l)}</div>
-      <p class="lv-note">Band 1 to 6, from your practice tests (latest ${new Date(newest).toLocaleDateString()}). Writing and Speaking need a rater: use Score in Claude on those tasks.</p>
+      <div class="lv-row">${cell('Reading', lv.r)}${cell('Listening', lv.l)}${lv.w ? cell('Writing', lv.w) + cell('Speaking', lv.s) : ''}</div>
+      <p class="lv-note">${lv.w ? 'Band 1 to 6, from your practice tests. Writing and Speaking come from the full practice test\'s checklists, so they are rougher.' : 'Band 1 to 6, from your practice tests. Take the full practice test to add Writing and Speaking estimates.'}</p>
       <div class="row" style="margin:0;"><button class="btn ghost small" id="levelBtn">Retake level check</button><button class="btn ghost small" id="goalBtn">${goal && SETTINGS.testDate ? 'Change goal' : 'Set goal and test date'}</button></div>
     </div>`;
 }
@@ -3146,7 +3216,7 @@ function studyPlan() {
     items = [T.mist(2), T.days(Math.min(3, days + 1))];
   } else if (days <= 14) {
     phase = 'Test mode'; note = 'Final two weeks: full timed tests and careful review of every miss.';
-    items = [T.rtest(2), T.ltest(2), T.write(3), T.speak(3), T.mist(3), T.days(6)];
+    items = [{ label: 'Full practice test (all four sections)', done: n(['mock']), target: 1, act: openMock }, T.rtest(1), T.ltest(1), T.write(3), T.speak(3), T.mist(3), T.days(6)];
   } else if (days <= 42) {
     phase = 'Practice'; note = 'Practice under test conditions and fix your weakest question types.';
     items = [T.rtest(1), T.ltest(1), T.write(3), T.speak(3), T.weak(3), T.days(5)];
@@ -3200,6 +3270,345 @@ async function shareReport(out) {
   try { await navigator.clipboard.writeText(text); copied = true; } catch (e) { }
   out.innerHTML = `<div class="notice info">${copied ? '<b>Copied.</b> Paste it into a message or email.' : 'Copy this report and send it:'}<textarea class="write" readonly style="min-height:200px; margin-top:8px; font-size:13px;"></textarea></div>`;
   $('textarea', out).value = text;
+}
+
+// ---------- Instant feedback without AI ----------
+// Writing and speaking get a checklist the app can check by itself: length,
+// task coverage, structure, linking words, repetition, and common errors.
+// It can't judge meaning or grammar fully, so it's a practice guide, not a score.
+const STOPWORDS = new Set('the a an and or but to of in on at for with by from as is are was were be been being it its this that these those i you he she we they my your our their his her me us them do does did have has had not no so if then than there here what which who whom when where why how can could would should will may might must just also very really about into over under after before during because while although however one thing something some any more most such own same other each every all both few many much'.split(' '));
+const LINKERS = ['however', 'therefore', 'for example', 'for instance', 'in addition', 'also', 'because', 'although', 'while', 'as a result', 'moreover', 'furthermore', 'first', 'second', 'finally', 'on the other hand', 'instead', 'in my opinion', 'for these reasons', 'such as', 'since', 'even though', 'in contrast', 'overall', 'so', 'but', 'besides', 'that is why', 'in conclusion'];
+// Errors Korean learners often make, with the fix.
+const COMMON_ERRORS = [
+  [/\bdiscuss about\b/i, 'discuss (no "about")'], [/\bexplain about\b/i, 'explain (no "about")'],
+  [/\bmention about\b/i, 'mention (no "about")'], [/\bemphasi[sz]e on\b/i, 'emphasize (no "on")'],
+  [/\bmore (easier|better|faster|cheaper|bigger|smaller|harder|happier|worse|busier)\b/i, 'drop "more" ("easier", "better")'],
+  [/\binformations\b/i, '"information" (no -s)'], [/\badvices\b/i, '"advice" (no -s)'], [/\bhomeworks\b/i, '"homework" (no -s)'],
+  [/\bequipments\b/i, '"equipment" (no -s)'], [/\bfurnitures\b/i, '"furniture" (no -s)'], [/\bknowledges\b/i, '"knowledge" (no -s)'],
+  [/\bcan able to\b/i, '"can" or "be able to"'], [/\bin nowadays\b/i, '"nowadays"'], [/\bdespite of\b/i, '"despite" or "in spite of"'],
+  [/\baccording to me\b/i, '"in my opinion"'], [/\bI am (agree|disagree)\b/i, '"I agree" / "I disagree"'],
+  [/\blook(ing)? forward to (see|meet|hear|work|talk)\b/i, '"look forward to seeing / meeting / hearing"'],
+  [/\bevery (students|people|classes|days|things|teachers)\b/i, '"every" + singular noun ("every student")'],
+  [/\bit'?s depends?\b/i, '"It depends"'], [/\bthe most of\b/i, '"most of"'], [/\breply me\b/i, '"reply to me"'],
+  [/\bmany (information|advice|homework|equipment|furniture)\b/i, '"a lot of" or "much" with uncountable nouns'],
+  [/\bdid(n'?t| not) (went|came|saw|took|made|had|got|bought|wrote|said)\b/i, 'base verb after "did" ("didn\'t go")'],
+  [/\b(he|she|it) (have|do|go|want|need|like|make|take)\b(?! to\b)/i, 'he / she / it + verb-s ("she has")']
+];
+const contentStems = s => (s.toLowerCase().match(/[a-z']+/g) || [])
+  .filter(w => w.length > 3 && !STOPWORDS.has(w) && !/^(describe|explain|suggest|tell|mention|give|state|request|thank|offer|invite|share|future|someone|something|thing)$/.test(w))
+  .map(w => w.replace(/(ing|ed|es|s|ly)$/, '').slice(0, 6));
+// Is an email point covered? Cue words for the kind of point, or its topic words.
+function pointCovered(point, text) {
+  const p = point.toLowerCase(), t = text.toLowerCase();
+  const cues = [
+    [/suggest|recommend|improve|idea/, /\b(suggest|recommend|could|would (be|like|help)|it might|why not|i hope|perhaps|maybe|should)\b/],
+    [/\bask\b|question|find out|whether/, /\?|\b(could you|would you|can you|i was wondering|please let me know)\b/],
+    [/apolog/, /\b(sorry|apolog)/], [/thank/, /\bthank/], [/invite/, /\b(invite|join|come)\b/],
+    [/explain|why|reason/, /\b(because|since|the reason|due to|so)\b/]
+  ];
+  const cueHit = cues.some(([pr, tr]) => pr.test(p) && tr.test(t));
+  const stems = contentStems(point), words = contentStems(text);
+  const topicHit = stems.some(s => words.some(w => w.startsWith(s.slice(0, 5)) || s.startsWith(w.slice(0, 5))));
+  return cueHit || topicHit;
+}
+function writingChecks(id, item, text) {
+  const words = text.match(/[A-Za-z']+/g) || [], n = words.length;
+  const sents = text.replace(/\n+/g, ' ').split(/(?<=[.!?])\s+/).filter(s => /[A-Za-z]/.test(s));
+  const checks = [], add = (ok, label, fix) => checks.push({ ok, label, fix });
+  const lo = id === 'email' ? 100 : 100, hi = id === 'email' ? 150 : 140;
+  add(n >= lo, `Length: ${n} words (aim for ${lo} to ${hi})`, n < lo ? `Write more: add a reason or a specific example to reach ${lo} words.` : '');
+  if (id === 'email') {
+    add(/^\s*(dear|hi|hello|good (morning|afternoon|evening))\b/i.test(text), 'Greeting', 'Start with a greeting that fits the reader, like "Dear Professor Kim," or "Hi Sam,".');
+    const tail = text.trim().split('\n').filter(l => l.trim()).slice(-3).join(' ');
+    add(/\b(regards|sincerely|best wishes|thank you|thanks|cheers|best)\b/i.test(tail), 'Closing and your name', 'End with a closing line ("Best regards,") and your name.');
+    item.points.forEach((pt, k) => add(pointCovered(pt, text), `Point ${k + 1}: ${pt}`, `Cover point ${k + 1} clearly: "${pt}". Give it its own sentence.`));
+  } else {
+    add(/\b(i think|i believe|in my (opinion|view)|i agree|i disagree|i prefer|i support|personally|from my perspective|i would (choose|say|argue))\b/i.test(text), 'Clear opinion', 'State your opinion in the first sentence: "I think…" or "I agree with … that…".');
+    add(item.students.some(s => new RegExp(`\\b${s.name}\\b`, 'i').test(text)), "Responds to a classmate", `Respond to a classmate by name, for example "${item.students[0].name} makes a good point, but…".`);
+    add(/\b(because|since|the (main )?reason|this is why|as a result|due to)\b/i.test(text), 'Gives a reason', 'Explain why with "because…" or "The main reason is that…".');
+    add(/\b(for example|for instance|such as|in my experience|when i|last (year|semester|month|week)|my (friend|brother|sister|school|class))\b/i.test(text), 'Gives a specific example', 'Add one specific example: "For example, last semester…".');
+  }
+  const linkers = LINKERS.filter(l => new RegExp(`\\b${l}\\b`, 'i').test(text));
+  add(linkers.length >= 3, `Linking words (${linkers.length})`, 'Connect your ideas with linking words: however, for example, as a result, in addition.');
+  const longS = sents.filter(s => (s.match(/[A-Za-z']+/g) || []).length > 35).length, avg = n / Math.max(1, sents.length);
+  add(!longS && avg >= 8, 'Sentence length', longS ? 'Split very long sentences (over 35 words) into two.' : 'Join some short sentences with "because", "although", or "which".');
+  const topic = new Set((((item.points || []).join(' ')) + ' ' + (item.prompt || '') + ' ' + (item.scenario || '')).toLowerCase().match(/[a-z']+/g) || []);
+  const freq = {}; words.forEach(w => { const l = w.toLowerCase(); if (l.length > 3 && !STOPWORDS.has(l) && !topic.has(l)) freq[l] = (freq[l] || 0) + 1; });
+  const rep = Object.entries(freq).filter(([, c]) => c >= 4).sort((a, b) => b[1] - a[1]);
+  add(!rep.length, rep.length ? `Repeated word: "${rep[0][0]}" (${rep[0][1]} times)` : 'Word variety', rep.length ? `Replace some uses of "${rep[0][0]}" with a synonym or a pronoun.` : '');
+  const errs = [];
+  COMMON_ERRORS.forEach(([re, fix]) => { const m = text.match(re); if (m) errs.push(`"${m[0]}" → ${fix}`); });
+  if (/(^|[.!?]\s+)[a-z]/.test(text.trim())) errs.push('A sentence starts with a small letter. Use a capital letter.');
+  if (/(^|\s)i(\s|')/.test(text)) errs.push('Write "I" as a capital letter.');
+  add(!errs.length, errs.length ? `Common errors (${errs.length})` : 'No common errors found', errs.join(' · '));
+  return checks;
+}
+// Speaking (interview): checks from the transcript, or the recording length.
+function speakingChecks(answer, secs) {
+  const checks = [], add = (ok, label, fix) => checks.push({ ok, label, fix });
+  const n = wordCount(answer || '');
+  if (!answer && secs != null) {
+    add(secs >= 35, `Speaking time: about ${Math.round(secs)} seconds`, 'Use most of the 45 seconds: answer, give a reason, then add an example.');
+    return checks;
+  }
+  add(n >= 70, `Length: ${n} words (aim for 80 to 120)`, n < 70 ? 'Say more: after your answer, add a reason and a personal example.' : '');
+  const first = (answer.split(/[.!?]/)[0] || '').toLowerCase();
+  add(/\b(i|i'm|my|yes|no|usually|prefer|think|agree|disagree|definitely|honestly|personally|depends)\b/.test(first), 'Answers the question directly', 'Answer in your first sentence: "I usually…", "I prefer…", "I agree that…".');
+  add(/\b(because|since|the (main )?reason|that's why|so)\b/i.test(answer), 'Gives a reason', 'Add a reason with "because…" or "The main reason is…".');
+  add(/\b(for example|for instance|such as|when i|last (year|week|semester|month|summer)|once|in my experience)\b/i.test(answer), 'Gives an example', 'Add a quick example from your own life: "For example, last semester…".');
+  const fillers = (answer.match(/\b(um+|uh+|er+|erm|you know|i mean)\b/gi) || []).length;
+  add(fillers <= 3, fillers ? `Filler words: ${fillers}` : 'Few filler words', 'Replace "um" and "uh" with a short silent pause.');
+  return checks;
+}
+function checklistHtml(checks, title = 'Instant checklist') {
+  const ok = checks.filter(c => c.ok).length;
+  return `<div class="fb checklist"><div class="row" style="justify-content:space-between;"><h4 style="margin:0;">${esc(title)}</h4><span class="badge ${ok === checks.length ? 'on' : ''}">${ok}/${checks.length} passed</span></div>
+    ${checks.map(c => `<div class="ck ${c.ok ? 'ok' : 'no'}"><span class="ck-i" aria-hidden="true">${c.ok ? '✓' : '!'}</span><span>${esc(c.label)}${!c.ok && c.fix ? `<br><span class="hint">${esc(c.fix)}</span>` : ''}</span></div>`).join('')}
+    <p class="hint" style="margin:10px 0 0;">The app checks structure and common errors. It can't judge every grammar point or how convincing your ideas are, so also compare with the model answer.</p></div>`;
+}
+
+// ---------- One thing to fix (after every set) ----------
+// Picks the single most useful next step from what just happened.
+let SET_LOG = [];
+function oneFix(id) {
+  if (current && current.fix) return current.fix;
+  if (!SET_LOG.length) return null;
+  const miss = {}; SET_LOG.forEach(r => { if (!r.ok) miss[r.type] = (miss[r.type] || 0) + 1; });
+  const top = Object.entries(miss).sort((a, b) => b[1] - a[1])[0];
+  if (!top) return { all: true, title: 'Nothing to fix in this set', tip: 'Every answer was right. Try a full practice test, or the next set under time pressure.' };
+  return { type: top[0], title: `${top[0]} questions (${top[1]} missed)`, tip: QT_TIPS[top[0]] || '' };
+}
+function fixCardHtml(id) {
+  const f = oneFix(id); if (!f) return '';
+  const drill = f.type && f.type !== 'Word completion' && typeQuestions(f.type).length > 1;
+  return `<div class="fix-card${f.all ? ' all' : ''}"><div class="hc-kicker">${f.all ? 'Nice work' : 'One thing to fix'}</div>
+    <div class="fx-title">${esc(f.title)}</div>${f.tip ? `<p>${esc(f.tip)}</p>` : ''}
+    ${drill ? `<button class="btn small" data-fixdrill="${esc(f.type)}">Practice ${esc(f.type)} questions</button>` : ''}</div>`;
+}
+document.addEventListener('click', e => { const b = e.target.closest('[data-fixdrill]'); if (b) go(() => runTypeDrill(b.dataset.fixdrill)); });
+// Complete the Words: which kind of word was missed most?
+function ctwFix(blanks, given, text) {
+  const words = ctwWords(text), missed = words.filter((w, i) => (given[i] || '').toLowerCase() !== w.miss.toLowerCase());
+  if (!missed.length) return { all: true, title: 'Nothing to fix in this set', tip: 'Every word was right. Try the next set and aim to finish faster.' };
+  const small = missed.filter(w => w.full.length <= 4).length;
+  const ending = missed.filter(w => /(s|ed|ing|ly|tion|ment|ity|er|est)$/i.test(w.full) && w.full.length > 4).length;
+  const list = missed.slice(0, 4).map(w => w.full).join(', ');
+  if (small >= ending && small >= Math.ceil(missed.length / 2)) return { title: `Small grammar words (${list})`, tip: 'Short words like articles, prepositions, and pronouns depend on the grammar right next to them. Read the words just before and after the gap.' };
+  if (ending >= Math.ceil(missed.length / 2)) return { title: `Word endings (${list})`, tip: 'Check the ending: plural -s, past -ed, -ing after "is" or a preposition, -ly for adverbs, -tion or -ment for nouns.' };
+  return { title: `Meaning in context (${list})`, tip: 'Read the whole sentence, then the next one. The meaning usually tells you which word starts with those letters.' };
+}
+
+// ---------- Strategy lessons (one per test task) ----------
+// Shown at the top of each task: open the first time, folded after that.
+const LESSONS = {
+  ctw: {
+    en: { what: 'A short academic paragraph with about ten words cut in half. You type the missing second half of each word.',
+      steps: ['Read the whole sentence first: the meaning tells you which word fits.', 'Decide the part of speech: noun, verb, adjective, article, or preposition.', 'Check the grammar around the gap: plural -s, past -ed, -ing after "is" or a preposition.', 'Spell carefully: one wrong letter makes the word wrong.'],
+      ex: 'Bees carry pollen fr__ flower to flower. → fr + om = "from", a preposition before a noun.',
+      traps: ['Forgetting plural or past-tense endings (-s, -ed).', 'A word that fits the letters but not the meaning.'] },
+    ko: { what: '약 10개 단어의 뒷부분이 지워진 짧은 학술 단락입니다. 각 단어의 빠진 뒷부분을 입력합니다.',
+      steps: ['먼저 문장 전체를 읽으세요. 의미를 알면 어떤 단어인지 보입니다.', '품사를 판단하세요: 명사, 동사, 형용사, 관사, 전치사.', '빈칸 주변의 문법을 확인하세요: 복수형 -s, 과거형 -ed, "is"나 전치사 뒤의 -ing.', '철자에 주의하세요. 한 글자만 틀려도 오답입니다.'],
+      ex: 'Bees carry pollen fr__ flower to flower. → fr + om = "from", 명사 앞의 전치사.',
+      traps: ['복수형이나 과거형 어미(-s, -ed)를 빠뜨리기.', '철자는 맞지만 의미가 맞지 않는 단어 고르기.'] } },
+  daily: {
+    en: { what: 'Short real-life texts such as notices, emails, posts, and ads, each with two or three questions.',
+      steps: ['Read the questions first, then scan the text for the answers.', 'Notice the title, the first lines, and any dates, times, or prices.', 'For "most likely mean" questions, reread the whole sentence around the phrase.'],
+      ex: 'Notice: "The pool will close at 7 p.m. instead of 9 p.m." What changes? → the closing time, not the opening time.',
+      traps: ['Options that use words from the text but change a detail.', 'Choosing what is true in general instead of what the text says.'] },
+    ko: { what: '공지, 이메일, 게시글, 광고 같은 짧은 실생활 글과 각 2~3개의 문제입니다.',
+      steps: ['문제를 먼저 읽고, 본문에서 답을 찾아 훑어보세요.', '제목, 첫 줄, 날짜, 시간, 가격에 주목하세요.', '"most likely mean" 문제는 그 표현이 있는 문장 전체를 다시 읽으세요.'],
+      ex: '공지: "The pool will close at 7 p.m. instead of 9 p.m." 무엇이 바뀌나요? → 여는 시간이 아니라 닫는 시간.',
+      traps: ['본문 단어를 쓰지만 세부 내용을 바꾼 선택지.', '본문 내용이 아니라 일반적으로 맞는 내용 고르기.'] } },
+  academic: {
+    en: { what: 'A passage of about 250 words with five questions: vocabulary, detail, NOT/EXCEPT, purpose, and inference.',
+      steps: ['Skim the first sentence of each paragraph to learn the structure.', 'Each question names a paragraph: go back and read that paragraph closely.', 'Vocabulary: put each option into the sentence and keep the one that keeps the meaning.', 'Inference: choose what the text supports, not what goes further.'],
+      ex: '"Why does the author mention fireflies?" → to give a familiar example of animals that make light.',
+      traps: ['Options that are true but come from a different paragraph.', 'Extreme words like "always" or "never" in inference options.'] },
+    ko: { what: '약 250단어 지문과 5문항(어휘, 세부 정보, 불일치, 의도, 추론)입니다.',
+      steps: ['각 단락의 첫 문장을 훑어 글의 구조를 파악하세요.', '문제에 나온 단락으로 돌아가 그 단락을 꼼꼼히 읽으세요.', '어휘: 선택지를 문장에 넣어 보고 의미가 유지되는 것을 고르세요.', '추론: 본문이 뒷받침하는 답을 고르고, 본문보다 지나친 답은 버리세요.'],
+      ex: '"Why does the author mention fireflies?" → 빛을 내는 동물의 친숙한 예를 들기 위해.',
+      traps: ['맞는 내용이지만 다른 단락에서 나온 선택지.', '추론 선택지의 "always", "never" 같은 극단적인 표현.'] } },
+  respond: {
+    en: { what: 'You hear one sentence and choose the best reply from four written options.',
+      steps: ['Listen for the purpose: a question, request, complaint, offer, or news.', 'Ask yourself what a person would naturally say next.', 'Check the tense and the question word (who, when, where, why).'],
+      ex: '"Would you mind if I borrowed your notes?" → "Sure, here you go." (yes to a request)',
+      traps: ['Replies that repeat words from the sentence but don\'t answer it.', 'Answering "when" when the question asked "where".'] },
+    ko: { what: '한 문장을 듣고 네 개의 보기 중 가장 알맞은 대답을 고릅니다.',
+      steps: ['말의 목적을 파악하세요: 질문, 부탁, 불평, 제안, 소식.', '사람이 자연스럽게 다음에 할 말을 생각하세요.', '시제와 의문사(who, when, where, why)를 확인하세요.'],
+      ex: '"Would you mind if I borrowed your notes?" → "Sure, here you go." (부탁에 대한 승낙)',
+      traps: ['들은 문장의 단어를 반복하지만 답이 되지 않는 보기.', '"where"를 물었는데 "when"에 답하는 보기.'] } },
+  convo: {
+    en: { what: 'A short campus conversation (a student and a professor or staff member), then three or four questions.',
+      steps: ['In the first lines, find the problem or the reason for the conversation.', 'Note the advice or solution the other person gives.', 'Listen to the end: questions often ask what the student will do next.'],
+      ex: 'Student: "My partner hasn\'t done his part." Professor: "Talk to him first, then email me." → Next: talk to the partner.',
+      traps: ['Ideas that are mentioned and then rejected.', 'Missing a change of plan at the end.'] },
+    ko: { what: '학생과 교수 또는 직원의 짧은 캠퍼스 대화를 듣고 3~4문제를 풉니다.',
+      steps: ['처음 몇 줄에서 문제나 대화의 이유를 찾으세요.', '상대방이 주는 조언이나 해결책을 메모하세요.', '끝까지 들으세요. 학생이 다음에 할 일을 묻는 문제가 자주 나옵니다.'],
+      ex: '학생: "My partner hasn\'t done his part." 교수: "Talk to him first, then email me." → 다음 할 일: 파트너와 이야기하기.',
+      traps: ['언급되었다가 거절된 의견.', '마지막에 바뀐 계획을 놓치기.'] } },
+  announce: {
+    en: { what: 'A short announcement by a professor or a campus office, then two questions.',
+      steps: ['Listen for the main purpose in the first sentence or two.', 'Note any change: a new time, place, or rule.', 'Note what listeners are asked to do.'],
+      ex: '"The exam has moved to Room 210 because of repairs." → Purpose: announce a room change.',
+      traps: ['Details that were true before the change.', 'Mixing up two dates or times that are both mentioned.'] },
+    ko: { what: '교수나 캠퍼스 부서의 짧은 안내 방송을 듣고 2문제를 풉니다.',
+      steps: ['처음 한두 문장에서 주된 목적을 들으세요.', '바뀐 점을 메모하세요: 새로운 시간, 장소, 규칙.', '듣는 사람에게 무엇을 하라고 하는지 메모하세요.'],
+      ex: '"The exam has moved to Room 210 because of repairs." → 목적: 강의실 변경 안내.',
+      traps: ['변경 전에 맞았던 세부 정보.', '함께 언급된 두 날짜나 시간을 혼동하기.'] } },
+  talk: {
+    en: { what: 'A short academic lecture, then questions about the main idea, details, and why the speaker mentions something.',
+      steps: ['Write down the topic and the professor\'s main point as soon as you hear them.', 'Note each example and what it shows.', 'For "Why does the professor mention…", ask which point the example supports.'],
+      ex: 'The professor mentions an old bicycle left in the rain → an example of rust (iron reacting with water and air).',
+      traps: ['Choosing a detail as the main idea.', 'Reading an example literally instead of as support for a point.'] },
+    ko: { what: '짧은 학술 강의를 듣고 중심 내용, 세부 정보, 화자가 어떤 내용을 언급한 이유에 관한 문제를 풉니다.',
+      steps: ['주제와 교수의 요점이 들리면 바로 적으세요.', '각 예시와 그 예시가 보여 주는 내용을 메모하세요.', '"Why does the professor mention…" 문제는 그 예시가 어떤 요점을 뒷받침하는지 생각하세요.'],
+      ex: '교수가 비를 맞은 낡은 자전거를 언급 → 녹(철이 물, 공기와 반응하는 현상)의 예.',
+      traps: ['세부 정보를 중심 내용으로 고르기.', '예시를 요점의 근거가 아니라 글자 그대로 받아들이기.'] } },
+  build: {
+    en: { what: 'Put scrambled words in order to make a correct reply in a short exchange. One extra word does not belong.',
+      steps: ['Read the first speaker\'s line: your reply must answer it.', 'Find the subject and the main verb first.', 'Then place the helpers: adverbs (still, already), prepositions, and articles.', 'Use the extra word as a clue: it is usually a wrong form (borrow vs borrowed).'],
+      ex: 'Did you finish the lab report? → I / still / need / to / write / the conclusion.',
+      traps: ['Question word order inside a statement ("where is it" vs "where it is").', 'Leaving a wrong verb form in the sentence.'] },
+    ko: { what: '뒤섞인 단어를 순서대로 놓아 짧은 대화의 올바른 대답을 만듭니다. 필요 없는 단어가 하나 있습니다.',
+      steps: ['첫 번째 사람의 말을 읽으세요. 대답은 그 말에 맞아야 합니다.', '주어와 본동사를 먼저 찾으세요.', '그다음 부사(still, already), 전치사, 관사를 넣으세요.', '남는 단어를 단서로 쓰세요. 보통 틀린 형태입니다(borrow / borrowed).'],
+      ex: 'Did you finish the lab report? → I / still / need / to / write / the conclusion.',
+      traps: ['평서문 안에 의문문 어순 쓰기("where is it" / "where it is").', '틀린 동사 형태를 문장에 남기기.'] } },
+  email: {
+    en: { what: 'You read a situation and have 7 minutes to write an email that covers three points.',
+      steps: ['A greeting that fits the reader (Dear Professor Kim, / Hi Sam,).', 'One sentence on why you are writing.', 'One short paragraph for each of the three points, in order.', 'A polite closing line, then your name.'],
+      ex: 'Point "Suggest an improvement" → "For future classes, I would suggest adding a short practice session…"',
+      traps: ['Skipping one of the three points: this costs the most.', 'Too casual for a professor, or too formal for a friend.'] },
+    ko: { what: '상황을 읽고 7분 안에 세 가지 요점을 모두 담은 이메일을 씁니다.',
+      steps: ['읽는 사람에 맞는 인사(Dear Professor Kim, / Hi Sam,).', '이메일을 쓰는 이유를 한 문장으로.', '세 가지 요점을 순서대로 각각 짧은 단락으로.', '정중한 맺음말과 이름.'],
+      ex: '요점 "Suggest an improvement" → "For future classes, I would suggest adding a short practice session…"',
+      traps: ['세 요점 중 하나를 빠뜨리기. 감점이 가장 큽니다.', '교수에게 너무 가볍게, 친구에게 너무 딱딱하게 쓰기.'] } },
+  discuss: {
+    en: { what: 'A professor asks a question and two classmates reply. You have 10 minutes to write your own post (100 words or more).',
+      steps: ['First sentence: your opinion.', 'Refer to a classmate by name: agree or disagree, with a reason.', 'Add one new reason with a specific example.', 'Finish with a one-sentence conclusion.'],
+      ex: '"I understand Andrew\'s point, but I agree more with Claire because…"',
+      traps: ['Repeating your classmates\' ideas without adding your own.', 'Writing a general essay instead of joining the discussion.'] },
+    ko: { what: '교수가 질문하고 두 학생이 답글을 씁니다. 10분 안에 나의 글(100단어 이상)을 씁니다.',
+      steps: ['첫 문장: 나의 의견.', '다른 학생의 이름을 들어 동의하거나 반대하고 이유를 말하세요.', '구체적인 예시와 함께 새로운 이유를 하나 더하세요.', '한 문장으로 마무리하세요.'],
+      ex: '"I understand Andrew\'s point, but I agree more with Claire because…"',
+      traps: ['다른 학생의 생각만 반복하고 내 생각을 더하지 않기.', '토론에 참여하지 않고 일반적인 에세이 쓰기.'] } },
+  repeat: {
+    en: { what: 'You hear seven sentences that get longer and repeat each one exactly.',
+      steps: ['Listen for meaning, not single words: meaning is easier to remember.', 'Hear the sentence in chunks: who / did what / where.', 'Start speaking right away, at a natural pace.'],
+      ex: '"Quiet study rooms / are located / on the third floor." → three chunks.',
+      traps: ['Dropping small words: the, a, to, of.', 'Changing word endings: room / rooms, locate / located.'] },
+    ko: { what: '점점 길어지는 일곱 문장을 듣고 각각 그대로 따라 말합니다.',
+      steps: ['단어 하나하나가 아니라 의미를 들으세요. 의미가 더 기억하기 쉽습니다.', '문장을 덩어리로 들으세요: 누가 / 무엇을 했는지 / 어디서.', '바로, 자연스러운 속도로 말하기 시작하세요.'],
+      ex: '"Quiet study rooms / are located / on the third floor." → 세 덩어리.',
+      traps: ['작은 단어(the, a, to, of) 빠뜨리기.', '어미 바꾸기: room / rooms, locate / located.'] } },
+  interview: {
+    en: { what: 'An interviewer asks four questions on one topic. You answer each one for about 45 seconds.',
+      steps: ['Answer the question directly in your first sentence.', 'Give a reason.', 'Add an example from your own life.', 'If time is left, finish with a one-sentence summary.'],
+      ex: '"I prefer studying alone, mainly because I focus better. For example, last semester…"',
+      traps: ['A long pause at the start: begin within two seconds.', 'A memorized answer that doesn\'t fit the question.'] },
+    ko: { what: '면접관이 한 주제로 네 가지 질문을 합니다. 각 질문에 약 45초 동안 답합니다.',
+      steps: ['첫 문장에서 질문에 바로 답하세요.', '이유를 말하세요.', '내 경험에서 예시를 하나 드세요.', '시간이 남으면 한 문장으로 정리하세요.'],
+      ex: '"I prefer studying alone, mainly because I focus better. For example, last semester…"',
+      traps: ['시작할 때 오래 멈추기. 2초 안에 시작하세요.', '질문에 맞지 않는 외운 답변.'] } }
+};
+function lessonHtml(id) {
+  const L = LESSONS[id]; if (!L) return '';
+  const ko = SETTINGS.lang === 'ko', t = ko ? L.ko : L.en, seen = store.get('toefl26-lessons', {})[id];
+  const h = ko ? { title: '📘 이 과제 공략법', what: '어떤 과제인가요', how: '푸는 순서', ex: '예시', traps: '자주 하는 실수' } : { title: '📘 How to do this task', what: 'What it is', how: 'Step by step', ex: 'Example', traps: 'Common traps' };
+  return `<details class="lesson notranslate" data-lesson="${id}"${seen ? '' : ' open'}${ko ? ' lang="ko"' : ''}><summary>${h.title}</summary>
+    <p><b>${h.what}:</b> ${esc(t.what)}</p>
+    <div class="lbl">${h.how}</div><ol>${t.steps.map(s => `<li>${esc(s)}</li>`).join('')}</ol>
+    <div class="lbl">${h.ex}</div><p class="ls-ex">${esc(t.ex)}</p>
+    <div class="lbl">${h.traps}</div><ul>${t.traps.map(s => `<li>${esc(s)}</li>`).join('')}</ul></details>`;
+}
+document.addEventListener('toggle', e => {
+  const d = e.target; if (!d.matches || !d.matches('details[data-lesson]')) return;
+  const seen = store.get('toefl26-lessons', {}); if (!seen[d.dataset.lesson]) { seen[d.dataset.lesson] = 1; store.set('toefl26-lessons', seen); }
+}, true);
+
+// ---------- Full practice test: all four sections ----------
+// Reading and Listening use the adaptive tests. Writing and Speaking use one
+// set of each task, checked with the instant checklists. Answers and reviews
+// come at the end, with an overall band like the real score report.
+const MOCK_STEPS = [
+  { key: 'rtest', sec: 'Reading', kind: 'test' },
+  { key: 'ltest', sec: 'Listening', kind: 'test' },
+  { key: 'build', sec: 'Writing', kind: 'task' },
+  { key: 'email', sec: 'Writing', kind: 'task' },
+  { key: 'discuss', sec: 'Writing', kind: 'task' },
+  { key: 'repeat', sec: 'Speaking', kind: 'task' },
+  { key: 'interview', sec: 'Speaking', kind: 'task' }
+];
+let MOCK = null;
+const mockTitle = () => { const st = MOCK_STEPS[MOCK.i]; return `Full test · ${st.sec} (${MOCK.i + 1} of ${MOCK_STEPS.length})`; };
+function openMock() {
+  enterSub(); currentTab = 'home'; paintTabbar();
+  setHeader('Full practice test', true);
+  const last = (HIST.mock || []).slice(-1)[0];
+  stage.innerHTML = `<h1>Full practice test</h1>
+    <p class="task-how">All four sections in test order, like test day: Reading, Listening, Writing, then Speaking. Reading and Listening are adaptive and timed. At the end you get a band for each section and an overall band, with a review of every answer.</p>
+    <div class="score-list">${MOCK_STEPS.map((s, i) => `<div><span>${i + 1}. ${esc(s.kind === 'test' ? TASKS[s.key].name : TASKS[s.key].name)}</span><span>${esc(s.sec)}</span></div>`).join('')}</div>
+    <div class="stat-row" style="margin-top:12px;"><div class="stat"><b>~90</b><span>minutes in total</span></div><div class="stat"><b>4</b><span>section bands + overall</span></div></div>
+    <p class="hint">Writing and Speaking bands come from the app's instant checklists, so they are rougher than Reading and Listening. Find a quiet place, use headphones, and keep the screen on.${last ? ` Your last full test: overall band ${(last.v * 6).toFixed(1)} on ${new Date(last.t).toLocaleDateString()}.` : ''}</p>
+    <div class="row" style="justify-content:center; margin-top:12px;"><button class="btn" id="mockGo">Start the full test</button></div>`;
+  $('#mockGo').addEventListener('click', () => { MOCK = { i: 0, res: {}, review: {} }; mockRun(); });
+}
+function mockRun() {
+  const st = MOCK && MOCK_STEPS[MOCK.i];
+  if (!st) return mockReport();
+  if (st.kind === 'test') go(() => openTest(st.key, { mock: true }));
+  else go(() => openTask(st.key, Math.floor(Math.random() * pool(st.key).length), { mock: true }));
+}
+// A part is done: save it and show a short pause screen.
+function mockNext(key, result, reviewHtml) {
+  if (!MOCK) return;
+  MOCK.res[key] = result; if (reviewHtml) MOCK.review[key] = reviewHtml;
+  MOCK.i++;
+  stopSpeech(); keepAwake(false); useWide(false);
+  const nx = MOCK_STEPS[MOCK.i];
+  if (!nx) return mockReport();
+  setHeader('Full practice test', true);
+  stage.innerHTML = `<div class="wcard" style="text-align:center;">
+      <div class="w-eyebrow">Part ${MOCK.i} of ${MOCK_STEPS.length} done ✓</div>
+      <h1>${nx.sec === MOCK_STEPS[MOCK.i - 1].sec ? 'Next part' : `Next: ${esc(nx.sec)}`}</h1>
+      <p class="sub">${esc(TASKS[nx.key].name)}</p>
+      <div class="pbar static" aria-hidden="true" style="margin:14px 0;"><i style="width:${Math.round(100 * MOCK.i / MOCK_STEPS.length)}%"></i></div>
+      <p class="hint">Answers and scores are shown at the end. Take a short breath, then continue.</p>
+      <div class="row" style="justify-content:center; margin-top:14px;"><button class="btn" id="mockCont">Continue ▶</button></div></div>`;
+  $('#mockCont').addEventListener('click', mockRun);
+  window.scrollTo(0, 0);
+}
+const pctOf = r => r && r.tot ? r.pts / r.tot : 0;
+function mockReport() {
+  const R = MOCK.res, round5 = x => Math.round(x * 2) / 2;
+  const rB = R.rtest ? R.rtest.band : 1, lB = R.ltest ? R.ltest.band : 1;
+  // Checklist-based sections can't confirm the top bands, so they stop at 5.
+  const wPct = (pctOf(R.build) + pctOf(R.email) + pctOf(R.discuss)) / 3, sPct = (pctOf(R.repeat) + pctOf(R.interview)) / 2;
+  const wB = Math.min(5, bandFromPct(wPct)), sB = Math.min(5, bandFromPct(sPct));
+  const overall = round5((rB + lB + wB + sB) / 4);
+  const lv = store.get('toefl26-level', null) || {}, t = Date.now();
+  lv.w = { b: wB, t, src: 'mock' }; lv.s = { b: sB, t, src: 'mock' }; store.set('toefl26-level', lv);
+  pushHist('mock', overall / 6); logActivity('mock'); markStudyDay();
+  const rv = MOCK.review, res = MOCK.res; MOCK = null;
+  enterSub(); setHeader('Full test results', true);
+  const cell = (n, b, note) => `<div class="stat"><b>${b.toFixed(1)}</b><span>${n} · about ${cefrOf(b)}${note ? `<br>${note}` : ''}</span></div>`;
+  stage.innerHTML = `<h1>Full test results</h1>
+    <div class="result"><div class="stamp ${overall >= 4.5 ? 'good' : overall >= 3 ? 'mid' : 'low'}">Overall ${overall.toFixed(1)}</div><p class="hint" style="margin-top:8px;">About ${cefrOf(overall)} · the average of the four sections, rounded to the nearest half band</p></div>
+    <div class="stat-row" style="grid-template-columns:1fr 1fr; margin-top:12px;">
+      ${cell('Reading', rB)}${cell('Listening', lB)}${cell('Writing', wB, 'checklist estimate')}${cell('Speaking', sB, 'checklist estimate')}</div>
+    <p class="hint">Rough practice estimates on the 1 to 6 scale, not official scores. Writing and Speaking come from the app's checklists (structure, length, coverage, common errors), so they are capped at 5.0.</p>
+    ${(() => { const g = +SETTINGS.goal || 0; return g ? `<p class="notice info">Goal ${g.toFixed(1)}: ${[['Reading', rB], ['Listening', lB], ['Writing', wB], ['Speaking', sB]].map(([n, b]) => b >= g ? `${n} ✓` : `${n} ${(g - b).toFixed(1)} to go`).join(' · ')}</p>` : ''; })()}
+    <h3 style="margin-top:20px;">Review</h3>
+    ${rv.rtest ? `<details class="test-review"><summary><b>Reading</b> · band ${rB.toFixed(1)}</summary>${rv.rtest}</details>` : ''}
+    ${rv.ltest ? `<details class="test-review"><summary><b>Listening</b> · band ${lB.toFixed(1)}</summary>${rv.ltest}</details>` : ''}
+    <details class="test-review"><summary><b>Writing</b> · band ${wB.toFixed(1)}</summary>
+      <p>Build a Sentence: ${res.build ? `${res.build.pts}/${res.build.tot}` : '-'}</p>
+      ${['email', 'discuss'].map(k => res[k] ? `<div class="lbl" style="margin-top:12px;">${esc(TASKS[k].name)}</div><div class="model">${esc(res[k].text || '(no response)')}</div>${checklistHtml(res[k].checks || [])}` : '').join('')}</details>
+    <details class="test-review"><summary><b>Speaking</b> · band ${sB.toFixed(1)}</summary>
+      <p>Listen and Repeat: ${res.repeat ? `${Math.round(pctOf(res.repeat) * 100)}%` : '-'}</p>
+      ${res.interview && res.interview.checks ? checklistHtml(res.interview.checks, 'Interview checklist (all answers)') : ''}</details>
+    <div class="row" style="justify-content:center; margin-top:20px;"><button class="btn" id="mockHome">Back to Home</button></div>`;
+  $('#mockHome').addEventListener('click', () => go(() => renderTab('home')));
+  window.scrollTo(0, 0);
 }
 
 // ---------- Backup and restore ----------
