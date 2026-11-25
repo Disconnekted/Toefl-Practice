@@ -76,7 +76,10 @@ function effectiveDark() {
   if (t) return t === 'dark';
   return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
 }
-function paintThemeBtn() { $('#themeBtn').textContent = effectiveDark() ? '☀️' : '🌙'; }
+function paintThemeBtn() {
+  $('#themeBtn').textContent = effectiveDark() ? '☀️' : '🌙';
+  const m = document.getElementById('themeColor'); if (m) m.content = effectiveDark() ? '#0e1117' : '#f3f5fa';
+}
 (function initTheme() { const t = store.get('toefl26-theme', null); if (t) document.documentElement.setAttribute('data-theme', t); paintThemeBtn(); })();
 $('#themeBtn').addEventListener('click', () => {
   const next = effectiveDark() ? 'light' : 'dark';
@@ -817,6 +820,8 @@ function dailyCardHtml() {
     ${dueMistakes().length ? `<button class="home-card" id="mistakesDue"><span class="hc-kicker">Mistake review</span><span class="hc-title">${dueMistakes().length} missed question${dueMistakes().length > 1 ? 's' : ''} to review</span><span class="hc-sub">Questions you got wrong come back after 1, 3, and 7 days.</span></button>` : ''}
     ${due ? `<button class="home-card" id="wordsDue"><span class="hc-kicker">Words</span><span class="hc-title">${due} word${due > 1 ? 's' : ''} due for review</span><span class="hc-sub">Academic Word List</span></button>` : ''}`;
 }
+function greeting() { const h = new Date().getHours(); return h < 5 ? 'Good evening' : h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening'; }
+const SKILL_COLORS = { reading: '#3d5af1', listening: '#8b5cf6', writing: '#f08c00', speaking: '#12a594' };
 function renderHomeTab() {
   setHeader('TOEFL iBT', false);
   const last = store.get('toefl26-last', null);
@@ -824,8 +829,9 @@ function renderHomeTab() {
   const lastOk = last && TASKS[last.id];
   stage.innerHTML = `
     ${IS_ANDROID && !isStandalone() && !store.get('toefl26-android-tip', 0) ? `<div class="notice info" id="androidTip" style="margin:0 0 18px; display:flex; gap:10px; align-items:flex-start;"><span><b>Install it as an app:</b> in Chrome, tap ⋮, then <b>Install app</b>. It then works offline.</span><button class="icon-btn" id="androidTipX" style="color:var(--pine); border-color:var(--pine); flex-shrink:0;" aria-label="Dismiss tip">✕</button></div>` : ''}
-    <h1>TOEFL iBT practice</h1>
-    <p class="sub">Every task type on the current test (the format in use since January 21, 2026), plus strategy drills.</p>
+    <p class="greet">${greeting()} 👋</p>
+    <h1>Ready to practice?</h1>
+    <p class="sub">Every task type on the current TOEFL iBT (the format in use since January 21, 2026), plus strategy drills.</p>
     ${levelCardHtml()}
     ${dailyCardHtml()}
     ${weakCardHtml()}
@@ -839,12 +845,13 @@ function renderHomeTab() {
       <span class="hc-sub">${esc(sug.why)}</span></button>
     <section class="sec">
       <div class="sec-head"><h2>Your skills</h2><button class="btn ghost small" id="progBtn">📈 Progress</button></div>
-      ${SKILL_TABS.map(t => { const a = skillAverage(t); return `
-        <button class="skill-row" data-goto="${t.id}">
-          <span class="sk-name">${t.icon} ${t.label}</span>
+      <div class="sk-grid">${SKILL_TABS.map(t => { const a = skillAverage(t); return `
+        <button class="sk-tile" data-goto="${t.id}" style="--c:${SKILL_COLORS[t.id] || 'var(--pine)'}">
+          <span class="sk-ic" aria-hidden="true">${t.icon}</span>
+          <span class="sk-name">${t.label}</span>
           <span class="sk-bar" aria-hidden="true"><i style="width:${a.pct ?? 0}%"></i></span>
-          <span class="sk-val">${a.pct != null ? a.pct + '%' : (a.sets ? a.sets + ' done' : '—')}</span>
-        </button>`; }).join('')}
+          <span class="sk-val">${a.pct != null ? a.pct + '% average' : (a.sets ? a.sets + ' sets done' : 'Not started')}</span>
+        </button>`; }).join('')}</div>
     </section>`;
   if (lastOk) $('#contBtn').addEventListener('click', () => go(() => openTask(last.id, last.idx)));
   $('#dailyBtn').addEventListener('click', () => go(() => (DAILY && !DAILY.finished) ? runDailyStep() : startDaily()));
@@ -2850,9 +2857,10 @@ function levelCardHtml() {
       <span class="hc-title">Find your starting level</span>
       <span class="hc-sub">A short Reading and Listening mix gives a rough band for each, and shows which question types to work on.</span></button>`;
   const cell = (name, e) => {
-    if (!e) return `<div class="lv-cell"><span class="lv-name">${name}</span><b>—</b><span class="lv-gap">not checked yet</span></div>`;
+    if (!e) return `<div class="lv-cell"><div class="lv-ring"><b>—</b></div><div class="lv-txt"><span class="lv-name">${name}</span><span class="lv-gap">not checked yet</span></div></div>`;
     const gap = goal ? (e.b >= goal ? '<span class="lv-gap ok">goal reached ✓</span>' : `<span class="lv-gap">${(goal - e.b).toFixed(1)} to go</span>`) : `<span class="lv-gap">about ${cefrOf(e.b)}</span>`;
-    return `<div class="lv-cell"><span class="lv-name">${name}</span><b>${e.b.toFixed(1)}</b>${gap}</div>`;
+    const ring = name === 'Reading' ? SKILL_COLORS.reading : SKILL_COLORS.listening;
+    return `<div class="lv-cell"><div class="lv-ring" style="--p:${(e.b / 6).toFixed(3)}; --ring:${ring}" role="img" aria-label="${name} band ${e.b.toFixed(1)} of 6"><b>${e.b.toFixed(1)}</b></div><div class="lv-txt"><span class="lv-name">${name}</span>${gap}</div></div>`;
   };
   const newest = Math.max(lv.r ? lv.r.t : 0, lv.l ? lv.l.t : 0);
   return `<div class="level-card">
