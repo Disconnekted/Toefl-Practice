@@ -740,7 +740,7 @@ I18N.set(SETTINGS.lang || 'en'); paintLangBtn();
 $('#langBtn').addEventListener('click', () => {
   SETTINGS.lang = SETTINGS.lang === 'ko' ? 'en' : 'ko'; saveSettings();
   I18N.set(SETTINGS.lang); paintLangBtn();
-  toast(SETTINGS.lang === 'ko' ? '한국어 화면. 시험 지문과 문제는 영어로 그대로 나옵니다.' : 'English interface');
+  toast(SETTINGS.lang === 'ko' ? '한국어 화면으로 바꿨습니다. 시험 지문과 문제는 영어 그대로 나옵니다.' : 'English interface');
 });
 
 const TEXT_SIZES = [0.9, 1, 1.12, 1.25, 1.4];
@@ -2959,6 +2959,16 @@ renderTab('home');
 if (!store.get('toefl26-welcomed', 0)) showWelcome();
 
 // ---------- Offline support ----------
+// New versions download in the background and apply on the next launch.
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => { }); });
+  const hadSW = !!navigator.serviceWorker.controller;
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').then(reg => {
+      // Apps stay open for days on phones: look for updates when reopened.
+      document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') reg.update().catch(() => { }); });
+    }).catch(() => { });
+  });
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (hadSW) toast(SETTINGS.lang === 'ko' ? '새 버전이 준비되었습니다. 앱을 닫았다가 다시 열면 적용됩니다.' : 'An update is ready. Close and reopen the app to use it.');
+  });
 }

@@ -29,7 +29,7 @@
     'A short Reading and Listening mix gives a rough band for each, and shows which question types to work on.': '읽기와 듣기 문제를 짧게 풀고 영역별 대략적인 밴드 점수와 보완할 문제 유형을 확인하세요.',
     'Retake level check': '레벨 테스트 다시 보기', 'Change goal': '목표 바꾸기', 'Set a goal': '목표 정하기',
     'not checked yet': '아직 측정 전', 'goal reached ✓': '목표 달성 ✓',
-    'Test day. Good luck!': '시험 날입니다. 화이팅!',
+    'Test day. Good luck!': '시험 날입니다. 파이팅!',
 
     // Section groups
     'Practice test': '실전 모의고사', 'Test tasks': '시험 과제', 'Strategy drills': '전략 연습', 'Note-taking drills': '노트 필기 연습',
@@ -39,7 +39,7 @@
 
     // Task names
     'Complete the Words': '단어 완성하기', 'Read in Daily Life': '일상 글 읽기', 'Read an Academic Passage': '학술 지문 읽기',
-    'Skim for structure': '구조 훑어읽기', 'Signal words': '연결어', 'Vocabulary in context': '문맥 속 어휘',
+    'Skim for structure': '구조 훑어 읽기', 'Signal words': '연결어', 'Vocabulary in context': '문맥 속 어휘',
     'Listen and Choose a Response': '듣고 응답 고르기', 'Listen to a Conversation': '대화 듣기', 'Listen to an Announcement': '안내 방송 듣기',
     'Listen to an Academic Talk': '강의 듣기', 'Guided notes': '빈칸 노트', 'One note per chunk': '한 부분씩 노트하기',
     'Lecture notes and tone': '강의 노트와 어조', 'Notes on your own podcast': '나만의 팟캐스트 노트',
@@ -85,7 +85,7 @@
     'Done skimming': '훑어보기 끝', 'Start listening': '듣기 시작', "I've finished listening": '다 들었어요', 'Check my notes': '노트 확인',
     'Start interview': '인터뷰 시작', 'Start speaking': '말하기 시작', 'Start practicing': '연습 시작',
     'Timer starts when you begin typing': '입력을 시작하면 타이머가 시작됩니다', 'Target: 100+ words': '목표: 100단어 이상',
-    'Signal word guide': '연결어 안내', 'How to skim:': '훑어읽는 법:', 'Which kind of clue helped?': '어떤 단서가 도움이 되었나요?',
+    'Signal word guide': '연결어 안내', 'How to skim:': '훑어 읽는 법:', 'Which kind of clue helped?': '어떤 단서가 도움이 되었나요?',
     'Part 1. Choose the signal word that fits': '1부. 알맞은 연결어 고르기', 'Part 2. Predict what comes next': '2부. 다음 내용 예측하기',
     'Choose the best response.': '가장 알맞은 응답을 고르세요.', 'Choose an answer first.': '먼저 답을 고르세요.',
     'Correct': '정답', 'Not yet': '아직이에요', 'It will come back tomorrow.': '내일 다시 나옵니다.',
@@ -201,7 +201,7 @@
     'Use real speakers. Real voices carry tone (sarcasm, doubt, excitement) that synthetic voices can\'t. Open a 3 to 8 minute lecture or podcast in another tab or on another device. Good sources include TED-Ed, university lecture channels, and science podcasts. Press start, listen once without pausing, and take notes here.':
       '<b>실제 화자로 연습하세요.</b> 실제 목소리에는 컴퓨터 음성이 표현하지 못하는 어조(비꼼, 의심, 흥분)가 담겨 있습니다. 다른 탭이나 기기에서 3~8분 길이의 강의나 팟캐스트를 여세요. TED-Ed, 대학 강의 채널, 과학 팟캐스트가 좋습니다. 시작을 누르고 멈추지 않고 <b>한 번만</b> 들으며 여기에 노트하세요.',
     "How to skim: read the title, the first sentence of each paragraph, and the last sentence of the introduction and conclusion. Ask: what is each paragraph's job?":
-      '<b>훑어읽는 법:</b> 제목, 각 단락의 첫 문장, 서론과 결론의 마지막 문장을 읽으세요. 각 단락의 역할이 무엇인지 생각하세요.',
+      '<b>훑어 읽는 법:</b> 제목, 각 단락의 첫 문장, 서론과 결론의 마지막 문장을 읽으세요. 각 단락의 역할이 무엇인지 생각하세요.',
     'Guided notes. Read the outline first, so you know what to listen for. Then start the talk and fill each gap as you hear it. One or two words is enough. The talk plays once.':
       '<b>빈칸 노트.</b> 먼저 개요를 읽고 무엇을 들어야 할지 파악하세요. 그다음 강의를 시작하고 들리는 대로 빈칸을 채우세요. 한두 단어면 충분합니다. 강의는 한 번만 재생됩니다.',
     "Listen once. Write the topic, the speaker's view, the main points, and any example or term the speaker stresses. Use short phrases, not full sentences.":
@@ -235,18 +235,20 @@
     [/^about ([A-C][12])$/, '약 $1'], [/^Sublist (\d+)$/, '서브리스트 $1'],
     [/^questions in (\d+) parts$/, '문항 ($1개 파트)'], [/^▶ Play (\d+)$/, '▶ $1번 재생'], [/^▶ Play (\d+) \(once\)$/, '▶ $1번 재생 (한 번만)'],
     [/^(\d+) recent scores?$/, '최근 점수 $1개'], [/^(\d+) unanswered$/, '$1개 미응답'], [/^(\d+) q$/, '$1문항'],
-    [/^(\d+) questions? unanswered$/, '$1개 문제 미응답'],
+    [/^(\d+) questions? unanswered$/, '미응답 문제 $1개'],
     [/^Level check · about 15 min(.*)$/, (m, a) => `레벨 테스트 · 약 15분${a.replace(/(\d+) days? to your test/, '시험까지 $1일')}`],
     [/^Your level · rough estimate(?: · goal (\d\.\d))?$/, (m, g) => `내 레벨 · 대략적 추정${g ? ` · 목표 ${g}` : ''}`],
     [/^Daily 15 · 🔥 (\d+)-day streak$/, '데일리 15 · 🔥 $1일 연속'],
     [/^(.+) questions · (\d+)% right$/, (m, a, b) => `${tr(a)} 문제 · 정답률 ${b}%`],
     [/^Continue: step (\d+) of (\d+)$/, '이어서 하기: $1 / $2단계'],
+    [/^(\d+) words?$/, '$1단어'], [/^(\d+) recorded clips available\.$/, '녹음 클립 $1개 사용 가능.'],
+    [/^Your progress is stored only on this device\. Save a backup file before changing phones or clearing browser data\. Your API key is never included\. Last backup: (.+)\.$/, (m, d) => `학습 기록은 이 기기에만 저장됩니다. 휴대폰을 바꾸거나 브라우저 데이터를 지우기 전에 백업 파일을 저장하세요. API 키는 포함되지 않습니다. 마지막 백업: ${d === 'never' ? '없음' : d}.`],
     [/^(\d+) words? due for review$/, '복습할 단어 $1개'], [/^(\d+) missed questions? to review$/, '복습할 오답 $1개'],
     [/^Mistake review · (\d+)\/(\d+)$/, '오답 복습 · $1/$2'],
     [/^Band 1 to 6, from your practice tests \(latest (.+)\)\. Writing and Speaking need a rater: use Score in Claude on those tasks\.$/, '1~6 밴드, 연습 시험 기준 (최근 $1). 쓰기와 말하기는 채점자가 필요하니 해당 과제에서 Claude로 채점을 이용하세요.'],
     [/^Your goal is band (\d\.\d)\.(.*)$/, (m, g, rest) => `목표 밴드는 ${g}입니다.${rest.replace(/Reading/g, '읽기').replace(/Listening/g, '듣기').replace(/goal reached ✓/g, '목표 달성 ✓').replace(/(\d\.\d) to go/g, '$1 남음')}`],
     [/^Reading, about ([A-C][12]) \((\d+)\/(\d+)\)$/, '읽기, 약 $1 ($2/$3)'], [/^Listening, about ([A-C][12]) \((\d+)\/(\d+)\)$/, '듣기, 약 $1 ($2/$3)'],
-    [/^estimated band \(about ([A-C][12])\)$/, '예상 밴드 (약 $1)'], [/^time used of (.+)$/, '사용 시간 / $1']
+    [/^estimated band \(about ([A-C][12])\)$/, '예상 밴드 (약 $1)'], [/^time used of (.+)$/, '전체 $1 중 사용 시간']
   ];
   // Never translate inside test content.
   const SKIP = '.doc,.passage,fieldset.q legend,label.opt,.transcript,.ctw,.vic-text,.skim-box,.post,.model,textarea,input,.w-term,.w-def,.w-ex,.w-prompt,.trans-text,.bubble,.tile,.corr,.why,.ctw-chips,[lang=ko]:not(html),.deck-sub,.skeleton,.answer-line,.live,.heard,.diff,.tmpl-phrases,.tmpl-steps,option,select,.prompt-box,script,style,.notranslate';
@@ -263,7 +265,8 @@
     if (!on || !root) return;
     busy = true;
     // Elements whose sentence is split by <b> tags.
-    root.querySelectorAll('p, .w-body p, .hc-sub, .task-how, .strat-tip, .notice > span').forEach(el => {
+    const sel = 'p, .hc-sub, .task-how, .strat-tip, .notice > span';
+    [...(root.matches && root.matches(sel) ? [root] : []), ...root.querySelectorAll(sel)].forEach(el => {
       if (htmlOrig.has(el) || el.closest(SKIP)) return;
       const ko = KO_HTML[norm(el.textContent)];
       if (ko) { htmlOrig.set(el, el.innerHTML); el.innerHTML = ko; }
@@ -280,7 +283,7 @@
       n.nodeValue = v.replace(norm(v), t);
     });
     // Accessible names and placeholders
-    root.querySelectorAll('[aria-label]').forEach(el => { const t = tr(el.getAttribute('aria-label')); if (t) { el.dataset.enLabel = el.dataset.enLabel || el.getAttribute('aria-label'); el.setAttribute('aria-label', t); } });
+    [...(root.hasAttribute && root.hasAttribute('aria-label') ? [root] : []), ...root.querySelectorAll('[aria-label]')].forEach(el => { const t = tr(el.getAttribute('aria-label')); if (t) { el.dataset.enLabel = el.dataset.enLabel || el.getAttribute('aria-label'); el.setAttribute('aria-label', t); } });
     busy = false;
   }
   function restore() {
@@ -291,11 +294,21 @@
     document.querySelectorAll('[data-en-label]').forEach(el => { el.setAttribute('aria-label', el.dataset.enLabel); delete el.dataset.enLabel; });
     busy = false;
   }
-  let queued = false;
-  const obs = new MutationObserver(() => {
-    if (!on || busy || queued) return;
+  // Translate only what changed (a new screen, a toast, a timer tick).
+  let pending = new Set(), queued = false;
+  const obs = new MutationObserver(records => {
+    if (!on || busy) return;
+    records.forEach(r => {
+      if (r.type === 'characterData') { if (r.target.parentElement) pending.add(r.target.parentElement); }
+      else r.addedNodes.forEach(n => pending.add(n.nodeType === 1 ? n : n.parentElement));
+    });
+    if (queued) return;
     queued = true;
-    Promise.resolve().then(() => { queued = false; translate(document.body); });
+    Promise.resolve().then(() => {
+      queued = false;
+      const roots = [...pending].filter(el => el && el.isConnected); pending = new Set();
+      roots.forEach(el => { if (!roots.some(o => o !== el && o.contains(el))) translate(el); });
+    });
   });
   window.I18N = {
     get on() { return on; },
@@ -311,6 +324,6 @@
     tr: s => (on && tr(s)) || s,
     add(map) { Object.entries(map).forEach(([en, ko]) => { const k = norm(en.replace(/<[^>]+>/g, '')); if (/<[^>]+>/.test(en)) KO_HTML[k] = ko; else KO[k] = ko; }); }
   };
-  // Keep the memory maps small on long sessions.
-  setInterval(() => { textOrig.forEach((v, n) => { if (!n.isConnected) textOrig.delete(n); }); htmlOrig.forEach((v, el) => { if (!el.isConnected) htmlOrig.delete(el); }); }, 30000);
+  // Forget nodes that have left the page, now and then.
+  document.addEventListener('visibilitychange', () => { textOrig.forEach((v, n) => { if (!n.isConnected) textOrig.delete(n); }); htmlOrig.forEach((v, el) => { if (!el.isConnected) htmlOrig.delete(el); }); });
 })();

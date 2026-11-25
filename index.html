@@ -11,30 +11,14 @@
 <title>TOEFL iBT Practice — 2026 Format</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@700;800&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<!-- Fonts load in the background; the phone's own font shows until they arrive. -->
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400..700&amp;family=Plus+Jakarta+Sans:wght@700..800&amp;family=IBM+Plex+Mono:wght@500&amp;display=swap" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400..700&amp;family=Plus+Jakarta+Sans:wght@700..800&amp;family=IBM+Plex+Mono:wght@500&amp;display=swap"></noscript>
 <style>
 :root{
-  --paper:#efe7d8; --card:#fffcf5; --ink:#2a251e; --pine:#1b4b43; --pine-dark:#123430;
-  --red:#a13327; --green:#2f6b4a; --muted:#7d7360; --gold:#b8921c; --rule:rgba(42,37,30,0.18);
-  --on-pine:#f4efe2; --tint:rgba(27,75,67,0.07); --hl:#fdf3d6;
-  --serif:'Source Serif 4', Georgia, 'Times New Roman', serif;
-  --mono:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;
-  --type:'Special Elite', 'Courier New', monospace;
   box-sizing:border-box;
   padding-top:env(safe-area-inset-top,0px);
   padding-bottom:env(safe-area-inset-bottom,0px);
-}
-@media (prefers-color-scheme: dark){
-  :root:not([data-theme="light"]){
-    --paper:#1c1a16; --card:#2a2621; --ink:#ece4d6; --pine:#4fae95; --pine-dark:#3c917b;
-    --red:#e2746a; --green:#6fcf9f; --muted:#a89f90; --gold:#e0b949; --rule:rgba(236,228,214,0.16);
-    --on-pine:#15120f; --tint:rgba(79,174,149,0.12); --hl:#3a331f;
-  }
-}
-:root[data-theme="dark"]{
-  --paper:#1c1a16; --card:#2a2621; --ink:#ece4d6; --pine:#4fae95; --pine-dark:#3c917b;
-  --red:#e2746a; --green:#6fcf9f; --muted:#a89f90; --gold:#e0b949; --rule:rgba(236,228,214,0.16);
-  --on-pine:#15120f; --tint:rgba(79,174,149,0.12); --hl:#3a331f;
 }
 html{ scroll-padding-top:env(safe-area-inset-top,0px); height:100%; }
 *,*::before,*::after{ box-sizing:border-box; }
@@ -281,10 +265,8 @@ body.in-sub .tabbar{ display:none; }
 .home-card .hc-title{ font-size:18px; font-weight:600; }
 .home-card .hc-sub{ font-size:13.5px; opacity:0.85; }
 .home-card:not(.primary):hover{ border-color:var(--pine); background:var(--tint); }
-.skill-row{ display:grid; grid-template-columns:7.5em 1fr 4.5em; gap:10px; align-items:center; width:100%; background:none; border:none; border-bottom:1px solid var(--rule); padding:12px 2px; color:var(--ink); cursor:pointer; text-align:left; font-size:15px; min-height:48px; }
 .sk-bar{ height:8px; background:var(--rule); border-radius:4px; overflow:hidden; }
 .sk-bar i{ display:block; height:100%; background:var(--pine); border-radius:4px; }
-.sk-val{ font-family:var(--mono); font-size:12.5px; color:var(--muted); text-align:right; }
 .stat-row{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:6px 0 10px; }
 .stat{ border:1px solid var(--rule); border-radius:8px; padding:12px 14px; display:flex; flex-direction:column; }
 .stat b{ font-family:var(--type); font-weight:400; font-size:28px; color:var(--pine); }
@@ -513,7 +495,7 @@ label.opt.wrong{ border-color:var(--red); background:color-mix(in srgb, var(--re
 .sk-tile .sk-name{ font-family:var(--type); font-weight:800; font-size:16px; }
 .sk-tile .sk-bar{ width:100%; height:6px; background:var(--rule); }
 .sk-tile .sk-bar i{ background:var(--c); }
-.sk-tile .sk-val{ font-size:12.5px; font-weight:600; text-align:left; }
+.sk-tile .sk-val{ font-size:12.5px; font-weight:600; color:var(--muted); }
 .lang-btn{ font-family:var(--type); font-weight:800; font-size:14px; }
 html[lang=ko] .task-how.ko{ display:none; }
 html[lang=ko] body{ word-break:keep-all; }

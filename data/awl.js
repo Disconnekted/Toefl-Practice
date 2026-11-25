@@ -1172,7 +1172,7 @@ DATA.awl = [
 {
 "t": "survey",
 "p": "noun / verb",
-"k": "설문조사, 조사하다",
+"k": "설문 조사, 조사하다",
 "d": "a set of questions to gather information, or to examine something",
 "x": [
 "The company sent out a customer satisfaction _______.",
@@ -1387,7 +1387,7 @@ DATA.awl = [
 {
 "t": "demonstrate",
 "p": "verb",
-"k": "증명하다, 보여주다",
+"k": "증명하다, 보여 주다",
 "d": "to show clearly through evidence or example",
 "x": [
 "The experiment aims to _______ how the reaction occurs.",
@@ -3622,7 +3622,7 @@ DATA.awl = [
 {
 "t": "utility",
 "p": "noun",
-"k": "유용성, 공공 시설",
+"k": "유용성, 공공시설",
 "d": "usefulness, or a public service such as electricity or water",
 "x": [
 "The tool's _______ lies in its simplicity.",
@@ -5197,7 +5197,7 @@ DATA.awl = [
 {
 "t": "mutual",
 "p": "adjective",
-"k": "상호간의",
+"k": "상호 간의",
 "d": "shared or felt equally by two or more parties",
 "x": [
 "They share a _______ respect for one another.",
