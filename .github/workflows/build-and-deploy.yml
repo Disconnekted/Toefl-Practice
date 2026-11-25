@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-24.04
     environment:
       name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
+      url: ${{ steps.deploy.outputs.page_url || steps.deploy_retry.outputs.page_url }}
     steps:
       - uses: actions/checkout@v7
 
@@ -104,5 +104,15 @@ jobs:
         with:
           path: _site
 
+      # GitHub sometimes can't find the upload for a few seconds; wait and retry once.
       - id: deploy
+        uses: actions/deploy-pages@v5
+        continue-on-error: true
+
+      - name: Wait before retrying the deploy
+        if: steps.deploy.outcome == 'failure'
+        run: sleep 60
+
+      - id: deploy_retry
+        if: steps.deploy.outcome == 'failure'
         uses: actions/deploy-pages@v5
