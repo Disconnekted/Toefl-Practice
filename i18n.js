@@ -122,7 +122,7 @@
     'Self-check: did you cover every point, use a clear opening and closing, connect your ideas with transitions, and proofread for verb tense and articles?': '자가 점검: 모든 요점을 다뤘나요? 시작과 끝이 분명한가요? 연결어로 생각을 이었나요? 동사 시제와 관사를 검토했나요?',
     'Answer each question as soon as it ends. You have about 45 seconds per answer.': '질문이 끝나면 바로 답하세요. 답변마다 약 45초가 있습니다.',
     'Study a sublist below to add words to your review. · 0 known': '아래 서브리스트를 공부하면 복습 목록에 단어가 추가됩니다. · 0개 암기',
-    'Install app': '앱 설치', 'Fill in the missing letters.': '빠진 철자를 채우세요.',
+    'Install app': '앱 설치', 'Reading test': '읽기 모의고사', 'Listening test': '듣기 모의고사', 'Fill in the missing letters.': '빠진 철자를 채우세요.',
 
 
     // Weekly plan
@@ -318,8 +318,8 @@
   const KO_RE = [
     [/^Good morning 👋$/, '좋은 아침이에요 👋'], [/^Good afternoon 👋$/, '좋은 오후예요 👋'], [/^Good evening 👋$/, '좋은 저녁이에요 👋'],
     [/^Set (\d+) of (\d+)$/, '세트 $1 / $2'], [/^Part (\d+) of (\d+)$/, '파트 $1 / $2'],
-    [/^(.+) · Part (\d+) of (\d+)$/, (m, a, b, c) => `${tr(a)} · 파트 ${b} / ${c}`],
-    [/^(.+) results$/, (m, a) => `${tr(a)} 결과`],
+    [/^(.+) · Part (\d+) of (\d+)$/, (m, a, b, c) => `${tr(a) || a} · 파트 ${b} / ${c}`],
+    [/^(.+) results$/, (m, a) => `${tr(a) || a} 결과`],
     [/^(\d+)\/(\d+) known$/, '$1/$2 암기'], [/^(\d+)% average$/, '평균 $1%'], [/^(\d+) sets? done$/, '$1세트 완료'],
     [/^(\d+) done, (\d+)%$/, '$1회 완료, $2%'], [/^(\d+) done$/, '$1회 완료'],
     [/^(\d+) days? to your test$/, '시험까지 $1일'], [/^(\d+(?:\.\d)?) to go$/, '$1 남음'],
@@ -330,7 +330,7 @@
     [/^Level check · about 15 min(.*)$/, (m, a) => `레벨 테스트 · 약 15분${a.replace(/(\d+) days? to your test/, '시험까지 $1일')}`],
     [/^Your level · rough estimate(?: · goal (\d\.\d))?$/, (m, g) => `내 레벨 · 대략적 추정${g ? ` · 목표 ${g}` : ''}`],
     [/^Daily 15 · 🔥 (\d+)-day streak$/, '데일리 15 · 🔥 $1일 연속'],
-    [/^(.+) questions · (\d+)% right$/, (m, a, b) => `${tr(a)} 문제 · 정답률 ${b}%`],
+    [/^(.+) questions · (\d+)% right$/, (m, a, b) => `${tr(a) || a} 문제 · 정답률 ${b}%`],
     [/^Continue: step (\d+) of (\d+)$/, '이어서 하기: $1 / $2단계'],
     [/^(\d+) words?$/, '$1단어'], [/^(\d+) recorded clips available\.$/, '녹음 클립 $1개 사용 가능.'],
     [/^Your progress is stored only on this device\. Save a backup file before changing phones or clearing browser data\. Your API key is never included\. Last backup: (.+)\.$/, (m, d) => `학습 기록은 이 기기에만 저장됩니다. 휴대폰을 바꾸거나 브라우저 데이터를 지우기 전에 백업 파일을 저장하세요. API 키는 포함되지 않습니다. 마지막 백업: ${d === 'never' ? '없음' : d}.`],
@@ -338,9 +338,9 @@
     [/^Saved "(.+)" to My words\.$/, '"$1"을(를) 내 단어장에 저장했습니다.'], [/^Academic Word List, sublist (\d+)$/, 'Academic Word List, 서브리스트 $1'],
     [/^Practice (.+) questions$/, (m, a) => `${tr(a) || a} 문제 연습`], [/^level (\d)$/, '레벨 $1'], [/^new$/, '새 단어'],
     [/^Question (\d+) of (\d+)$/, '질문 $1 / $2'], [/^Sentence (\d+) of (\d+)$/, '문장 $1 / $2'],
-    [/^Full test · (Reading|Listening|Writing|Speaking) \((\d+) of (\d+)\)$/, (m, a, b, c) => `전체 모의고사 · ${tr(a)} (${b}/${c})`],
+    [/^Full test · (Reading|Listening|Writing|Speaking) \((\d+) of (\d+)\)$/, (m, a, b, c) => `전체 모의고사 · ${tr(a) || a} (${b}/${c})`],
     [/^Part (\d+) of (\d+) done ✓$/, '파트 $1 / $2 완료 ✓'], [/^Next: (.+)$/, (m, a) => `다음: ${tr(a) || a}`],
-    [/^Overall (\d\.\d)$/, '종합 $1'], [/^(Reading|Listening|Writing|Speaking) · about ([A-C][12])$/, (m, a, b) => `${tr(a)} · 약 ${b}`],
+    [/^Overall (\d\.\d)$/, '종합 $1'], [/^(Reading|Listening|Writing|Speaking) · about ([A-C][12])$/, (m, a, b) => `${tr(a) || a} · 약 ${b}`],
     [/^About ([A-C][12]) · the average of the four sections, rounded to the nearest half band$/, '약 $1 · 네 영역의 평균을 0.5 단위로 반올림'],
     [/^Length: (\d+) words \(aim for (\d+) to (\d+)\)$/, '길이: $1단어 (목표 $2~$3단어)'], [/^Linking words \((\d+)\)$/, '연결어 ($1개)'],
     [/^Common errors \((\d+)\)$/, '흔한 오류 ($1개)'], [/^Repeated word: "(.+)" \((\d+) times\)$/, '반복된 단어: "$1" ($2번)'],

@@ -541,6 +541,13 @@ details.lesson li{ margin-bottom:4px; }
 details.lesson p{ font-size:14.5px; margin:10px 0; }
 details.lesson .lbl{ margin:8px 0 2px; font-size:13px; }
 .ls-ex{ background:var(--paper); border-radius:10px; padding:8px 12px; }
+/* Narrow phones (Galaxy S series, 360px): roomier header title */
+@media (max-width:380px){
+  .drawer-tab{ gap:6px; font-size:15.5px; }
+  .drawer-tab .row{ gap:6px !important; }
+  .icon-btn{ min-width:36px; min-height:36px; padding:4px 6px; border-radius:10px; }
+  .hdr-title{ white-space:normal; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; line-height:1.2; }
+}
 </style>
 </head>
 <body>
