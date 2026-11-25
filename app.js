@@ -21,7 +21,11 @@ function pushHist(id, v) { if (v == null || isNaN(v)) return; (HIST[id] = HIST[i
 const saveSettings = () => store.set('toefl26-settings', SETTINGS);
 
 function pool(id) { return DATA[id].concat(EXTRA[id] || []); }
+// Activity log: what was practiced when (for the weekly study plan).
+let LOG = store.get('toefl26-log', []);
+function logActivity(id) { LOG.push({ t: Date.now(), id }); LOG = LOG.slice(-600); store.set('toefl26-log', LOG); }
 function record(id, pts, tot) {
+  logActivity(id);
   if (typeof markStudyDay === 'function') markStudyDay();
   if (current && current.daily && DAILY && DAILY.steps[DAILY.i] && DAILY.steps[DAILY.i].id === id) dailyResult(pts, tot);
   buzz(tot && pts / tot >= 0.8 ? 25 : [25, 70, 25]);
@@ -30,6 +34,7 @@ function record(id, pts, tot) {
   if (tot) pushHist(id, pts / tot);
 }
 function recordAI(id, score) {
+  logActivity(id);
   if (typeof markStudyDay === 'function') markStudyDay();
   const s = STATS[id] || { sets: 0, pts: 0, tot: 0 };
   s.sets++; if (score != null) s.last = score; STATS[id] = s; store.set('toefl26-stats', STATS);
@@ -395,6 +400,15 @@ function createPlayback(lines, { onProgress, onEnd } = {}) {
   return me;
 }
 
+// Playback speeds (the Settings speed choices), shown as a multiple of normal.
+const SPEEDS = [0.75, 0.9, 1.05, 1.125];
+const speedLabel = (v = SETTINGS.rate || 0.9) => `${+(Math.round(v / 0.9 * 20) / 20).toFixed(2)}×`;
+function cycleSpeed() {
+  const cur = SETTINGS.rate || 0.9, i = SPEEDS.findIndex(v => Math.abs(v - cur) < 0.01);
+  SETTINGS.rate = SPEEDS[(i + 1) % SPEEDS.length]; saveSettings();
+  studioPlayer.playbackRate = Math.max(0.6, Math.min(1.5, SETTINGS.rate / 0.9));
+  $$('.ap-speed').forEach(b => { b.textContent = speedLabel(); });
+}
 const fmtT = s => { s = Math.max(0, Math.round(s || 0)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
 // A play control. Normal mode: play/pause, 5-second rewind, and a seek bar
 // you can drag or tap, like a video player. Exam mode and "plays once"
@@ -406,6 +420,7 @@ function mountPlayer(el, lines, { label = '▶ Play audio', onFirstEnd, once = f
   el.innerHTML = `<div class="ap-row">
       <button class="btn ap-play" data-p="play">${label}</button>
       ${locked ? '' : '<button class="btn ghost small ap-back" data-p="back" aria-label="Back 5 seconds" hidden>↺ 5s</button>'}
+      ${locked ? '' : `<button class="btn ghost small ap-speed" data-p="speed" aria-label="Playback speed">${speedLabel()}</button>`}
       <span class="ap-time"><span data-cur>0:00</span> / <span data-tot>–:––</span></span>
       <span class="state"></span>
     </div>
@@ -413,6 +428,7 @@ function mountPlayer(el, lines, { label = '▶ Play audio', onFirstEnd, once = f
       <div class="ap-track"><i class="ap-fill"></i></div><span class="ap-thumb"></span><span class="ap-tip" hidden></span>
     </div>`;
   const play = $('[data-p=play]', el), back = $('[data-p=back]', el), state = $('.state', el);
+  const spd = $('[data-p=speed]', el); if (spd) spd.addEventListener('click', cycleSpeed);
   const seekEl = $('.ap-seek', el), fill = $('.ap-fill', el), thumb = $('.ap-thumb', el), tip = $('.ap-tip', el);
   const cur = $('[data-cur]', el), tot = $('[data-tot]', el);
   const show = (f, now, T) => {
@@ -517,6 +533,45 @@ function listen({ onText, onEnd, onBlocked }) {
   };
   try { r.start(); } catch (e) { srBlocked = true; onBlocked && onBlocked('start'); return { stop() { } }; }
   return { stop() { stopped = true; try { r.stop(); } catch (e) { } } };
+}
+// ---------- Voice recording (hear yourself) ----------
+// Recordings stay in memory on this device and are gone when you leave.
+const canRecord = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.MediaRecorder);
+async function startRecording() {
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  const mr = new MediaRecorder(stream), chunks = [];
+  mr.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
+  mr.start();
+  let done = null;
+  return {
+    stop() {
+      return done || (done = new Promise(res => {
+        mr.onstop = () => { stream.getTracks().forEach(t => t.stop()); res(chunks.length ? URL.createObjectURL(new Blob(chunks, { type: mr.mimeType || 'audio/webm' })) : null); };
+        try { mr.stop(); } catch (e) { stream.getTracks().forEach(t => t.stop()); res(null); }
+      }));
+    }
+  };
+}
+// "Record and compare": say it again, then play the model and yourself.
+function recordCompare(host, modelLines, secs) {
+  if (!canRecord) return;
+  host.innerHTML = `<div class="rec-box"><div class="row"><button class="btn ghost small" data-rec>🎙 Record yourself and compare</button><span class="hint" data-rs></span></div><div data-ro></div></div>`;
+  const btn = $('[data-rec]', host), st = $('[data-rs]', host), out = $('[data-ro]', host);
+  let rec = null, auto = null;
+  onLeave(() => { clearTimeout(auto); rec && rec.stop(); });
+  btn.addEventListener('click', async () => {
+    if (rec) { clearTimeout(auto); btn.disabled = true; const url = await rec.stop(); rec = null; btn.disabled = false; btn.textContent = '🎙 Record again'; st.textContent = ''; show(url); return; }
+    try { stopSpeech(); rec = await startRecording(); } catch (e) { st.textContent = 'The microphone is blocked, so recording is off.'; return; }
+    btn.textContent = '■ Stop'; st.innerHTML = '<span class="mic"><span class="dot"></span>Recording</span>';
+    auto = setTimeout(() => rec && btn.click(), secs * 1000);
+  });
+  const show = url => {
+    if (!url) { out.innerHTML = '<p class="hint">Nothing was recorded. Try again.</p>'; return; }
+    out.innerHTML = `<div class="rec-compare"><div><span class="lbl">Model</span><div class="player" data-mp></div></div>
+      <div><span class="lbl">You</span><audio controls src="${url}" preload="auto"></audio></div></div>
+      <p class="hint">Listen for missing small words, the stressed words, and where the speaker pauses.</p>`;
+    mountPlayer($('[data-mp]', out), modelLines, { label: '▶ Play model' });
+  };
 }
 const NUMS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen', 'twenty'];
 function tokens(s) {
@@ -668,8 +723,8 @@ Object.defineProperty(TASKS.vic, 'gen', { get() {
   const fresh = shuffle((DATA.vicWords || []).filter(w => !seen.has(w))).slice(0, 5);
   return `A set of 5 items using exactly these target words, one per item: ${fresh.join(', ')}. ` + this.genBase;
 } });
-TASKS.rtest = { section: 'Reading', name: 'Full Reading test', blurb: 'All three task types in order, about 25 minutes. Estimated band at the end.', test: true };
-TASKS.ltest = { section: 'Listening', name: 'Full Listening test', blurb: 'All four task types, each recording plays once. Estimated band at the end.', test: true };
+TASKS.rtest = { section: 'Reading', name: 'Full Reading test', blurb: 'Adaptive, like the real test: all three task types, about 25 minutes. Estimated band at the end.', test: true };
+TASKS.ltest = { section: 'Listening', name: 'Full Listening test', blurb: 'Adaptive, like the real test: all four task types, each recording plays once. Estimated band at the end.', test: true };
 TASKS.diag = { section: 'Level check', name: 'Level check', blurb: 'A 15-minute mix of Reading and Listening with a rough band for each.', test: true };
 const SECTIONS = [
   { name: 'Reading', meta: 'about 30 min, adaptive', tasks: ['ctw', 'daily', 'academic'] },
@@ -827,7 +882,7 @@ function skillAverage(tab) {
 }
 const isStandalone = () => (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || navigator.standalone;
 function dailyCardHtml() {
-  const st = streak(), due = dueWords(AWL_ALL()).length;
+  const st = streak(), due = dueWords(ALL_WORDS()).length;
   const live = DAILY && !DAILY.finished, doneToday = DAILY && DAILY.finished;
   return `<button class="home-card primary" id="dailyBtn">
       <span class="hc-kicker">Daily 15${st ? ` · 🔥 ${st}-day streak` : ''}</span>
@@ -849,6 +904,7 @@ function renderHomeTab() {
     <h1>Ready to practice?</h1>
     <p class="sub">Every task type on the current TOEFL iBT (the format in use since January 21, 2026), plus strategy drills.</p>
     ${levelCardHtml()}
+    ${planCardHtml()}
     ${dailyCardHtml()}
     ${weakCardHtml()}
     ${lastOk ? `<button class="home-card" id="contBtn">
@@ -866,7 +922,7 @@ function renderHomeTab() {
           <span class="sk-ic" aria-hidden="true">${t.icon}</span>
           <span class="sk-name">${t.label}</span>
           <span class="sk-bar" aria-hidden="true"><i style="width:${a.pct ?? 0}%"></i></span>
-          <span class="sk-val">${a.pct != null ? a.pct + '% average' : (a.sets ? a.sets + ' sets done' : 'Not started')}</span>
+          <span class="sk-val">${a.pct != null ? a.pct + '% average' : (a.sets ? `${a.sets} set${a.sets === 1 ? '' : 's'} done` : 'Not started')}</span>
         </button>`; }).join('')}</div>
     </section>`;
   if (lastOk) $('#contBtn').addEventListener('click', () => go(() => openTask(last.id, last.idx)));
@@ -875,6 +931,7 @@ function renderHomeTab() {
   const mb = $('#mistakesDue'); if (mb) mb.addEventListener('click', () => go(() => runMistakes(shuffle(dueMistakes()).slice(0, 10))));
   $('#sugBtn').addEventListener('click', () => go(() => openTask(sug.id)));
   $('#levelBtn').addEventListener('click', () => go(() => openTest('diag')));
+  bindPlanCard();
   const gb = $('#goalBtn'); if (gb) gb.addEventListener('click', () => go(renderSettings));
   const wk = $('#weakBtn'); if (wk) wk.addEventListener('click', () => go(() => runTypeDrill(wk.dataset.type)));
   $('#progBtn').addEventListener('click', () => go(renderProgress));
@@ -911,6 +968,8 @@ function renderProgress() {
         <span class="sk-bar" aria-hidden="true"><i style="width:${Math.round(x.pct * 100)}%"></i></span>
         <span class="pr-val">${Math.round(x.pct * 100)}%<br><span class="hint">${x.n} q</span></span></button>`).join('')}`
       : '<p class="hint">Check a few Reading or Listening sets and your accuracy by question type (main idea, detail, inference, and more) shows up here.</p>'}</section>`; })()}
+    <div class="row" style="margin:4px 0 8px;"><button class="btn ghost small" id="shareRep">📤 Share my progress</button></div>
+    <div id="shareOut"></div>
     <p class="hint">Each line shows your last 12 scores for a task. The dotted line marks 80%.</p>
     ${SKILL_TABS.map(t => `
       <section class="sec"><div class="sec-head"><h2>${t.label}</h2></div>
@@ -926,6 +985,7 @@ function renderProgress() {
         </button>`;
       }).join('')}</section>`).join('')}`;
   $$('.prog-row[data-task]').forEach(b => b.addEventListener('click', () => go(() => openAny(b.dataset.task))));
+  $('#shareRep').addEventListener('click', () => shareReport($('#shareOut')));
   $$('.qt-row[data-qt]').forEach(b => b.addEventListener('click', () => go(() => runTypeDrill(b.dataset.qt))));
   const pm = $('#progMist'); if (pm) pm.addEventListener('click', () => go(() => runMistakes(shuffle(dueMistakes()).slice(0, 10))));
 }
@@ -946,7 +1006,7 @@ function renderSettings() {
       <label class="check"><input type="checkbox" id="koBox" ${SETTINGS.koInstr ? 'checked' : ''}><span>Show task instructions in Korean too (과제 설명을 한국어로도 보기)</span></label>
       <div><span class="lbl">Speaking speed of the audio</span>
         <div class="seg" id="rateSeg">
-          ${[[0.75, 'Slower'], [0.9, 'Natural'], [1.05, 'Test pace']].map(([v, l]) => `<button data-rate="${v}" class="${SETTINGS.rate == v ? 'active' : ''}">${l}</button>`).join('')}
+          ${[[0.75, 'Slower'], [0.9, 'Natural'], [1.05, 'Test pace'], [1.125, 'Fast 1.25×']].map(([v, l]) => `<button data-rate="${v}" class="${SETTINGS.rate == v ? 'active' : ''}">${l}</button>`).join('')}
         </div></div>
       <div><span class="lbl">Recorded voices</span>
         <label class="check"><input type="checkbox" id="studioBox" ${SETTINGS.studio !== false ? 'checked' : ''}><span>Use recorded studio voices when available. New sets from Claude use your phone's voices.</span></label>
@@ -1057,6 +1117,12 @@ function showWelcome() {
 // ---------- Task shell ----------
 let current = { id: null, idx: 0 };
 function openTask(id, idx, opts = {}) {
+  // One-time tip about saving words, the first time a text appears.
+  setTimeout(() => {
+    if (store.get('toefl26-tip-tap', 0) || document.body.classList.contains('in-test') || !$(TAP_AREAS, stage)) return;
+    store.set('toefl26-tip-tap', 1);
+    toast(SETTINGS.lang === 'ko' ? '팁: 글에서 단어를 누르면 내 단어장에 저장할 수 있습니다.' : 'Tip: tap any word in the text to save it to My words.');
+  }, 900);
   enterSub();
   const list = pool(id);
   if (idx == null) idx = (CURSOR[id] || 0) % list.length;
@@ -1931,7 +1997,8 @@ function renderRepeat(item, body, id) {
     const selfCheck = () => {
       zone.insertAdjacentHTML('beforeend', `<p>Say the sentence out loud now.</p><button class="btn ghost" id="rev">Reveal sentence</button>`);
       $('#rev', body).addEventListener('click', () => {
-        zone.innerHTML = `<div class="diff">${esc(target)}</div><div class="row"><button class="btn" data-g="1">I said it all</button><button class="btn ghost" data-g="0.5">I missed a few words</button><button class="btn ghost" data-g="0">I missed a lot</button></div>`;
+        zone.innerHTML = `<div class="diff">${esc(target)}</div><div class="row"><button class="btn" data-g="1">I said it all</button><button class="btn ghost" data-g="0.5">I missed a few words</button><button class="btn ghost" data-g="0">I missed a lot</button></div><div id="cmp"></div>`;
+        recordCompare($('#cmp', body), [{ s: 0, t: target }], Math.round(5 + tokens(target).length * 0.7));
         $$('[data-g]', zone).forEach(b => b.addEventListener('click', () => { results.push(+b.dataset.g); i++; step(); }));
       });
     };
@@ -1945,6 +2012,8 @@ function renderRepeat(item, body, id) {
       zone.innerHTML = `<div class="diff">${shown}</div><p class="heard">We heard: "${esc(said || '(nothing)')}"</p>
         <div class="row"><span class="stamp ${pct >= 0.9 ? 'good' : pct >= 0.6 ? 'mid' : 'low'}" style="font-size:16px;">${Math.round(pct * 100)}%</span>
         <button class="btn ghost" id="again">Try again</button><button class="btn" id="nx">${i + 1 < item.sentences.length ? 'Next sentence' : 'See results'}</button></div>`;
+      zone.insertAdjacentHTML('beforeend', '<div id="cmp"></div>');
+      recordCompare($('#cmp', body), [{ s: 0, t: target }], Math.round(5 + tokens(target).length * 0.7));
       $('#again', body).addEventListener('click', () => { results.pop(); step(); });
       $('#nx', body).addEventListener('click', () => { i++; step(); });
     };
@@ -1964,14 +2033,24 @@ function renderRepeat(item, body, id) {
 
 // ---------- Speaking: Take an Interview ----------
 function renderInterview(item, body, id) {
-  const answers = item.questions.map(() => '');
-  let q = 0, rec = null; onLeave(() => rec && rec.stop());
+  const answers = item.questions.map(() => ''), voices = item.questions.map(() => null);
+  let q = 0, rec = null, vrec = null; onLeave(() => { rec && rec.stop(); vrec && vrec.stop(); });
+  // Text (speech-to-text), Voice (a recording to replay), or both. Phones
+  // often can't do both at once, so Android starts with text only.
+  const modes = [['text', 'Text'], ['voice', 'Voice recording'], ['both', 'Both']].filter(([m]) => m === 'text' ? !!SR : canRecord || m === 'text');
+  let mode = SETTINGS.speakMode || (IS_ANDROID || !canRecord ? 'text' : 'both');
+  if (!modes.some(([m]) => m === mode)) mode = modes.length ? modes[0][0] : 'text';
+  const wantText = () => mode !== 'voice', wantVoice = () => mode !== 'text' && canRecord;
   const intro = () => {
     body.innerHTML = `<div class="prompt-box">${esc(item.intro)}</div>
       ${SR ? '' : '<div class="notice info">This browser can\'t turn speech into text. You can still answer out loud for practice, and type key points if you want Claude\'s feedback. Chrome or Edge gives automatic transcripts.</div>'}
       <p class="hint">Answer each question as soon as it ends. You have about 45 seconds per answer.</p>
+      ${modes.length > 1 ? `<div><span class="lbl">Save my answers as</span><div class="seg" id="capSeg">${modes.map(([m, l]) => `<button data-cap="${m}" class="${m === mode ? 'active' : ''}">${l}</button>`).join('')}</div>
+      <p class="hint" style="margin-top:6px;">Text lets Claude score you. A voice recording lets you hear your pauses, fillers, and pronunciation.${IS_ANDROID ? ' On many phones, Both doesn\'t work; pick one.' : ''}</p></div>` : ''}
       ${templateHtml('interview', true)}
       <div class="row"><button class="btn" id="go">Start interview</button></div>`;
+    const cs = $('#capSeg', body);
+    if (cs) cs.addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; mode = SETTINGS.speakMode = b.dataset.cap; saveSettings(); $$('#capSeg button', body).forEach(x => x.classList.toggle('active', x === b)); });
     $('#go', body).addEventListener('click', ask);
   };
   const ask = () => {
@@ -1983,28 +2062,31 @@ function renderInterview(item, body, id) {
     const zone = $('#zone', body);
     const answer = () => {
       zone.innerHTML = `<div class="row" style="justify-content:space-between;">
-          <span class="mic" id="micLbl">${srAvailable() ? '<span class="dot"></span>Recording your answer' : 'Answer out loud now'}</span>
+          <span class="mic" id="micLbl">${(srAvailable() && wantText()) || wantVoice() ? '<span class="dot"></span>Recording your answer' : 'Answer out loud now'}</span>
           <span class="timer" id="tm"></span></div>
         <textarea class="write" id="ta" style="min-height:120px; margin-top:10px;" placeholder="${srAvailable() ? 'Your words appear here. You can fix transcription errors.' : 'Optional: type what you said or your key points.'}"></textarea>
         <div class="row" style="margin-top:10px;"><button class="btn" id="nx">${q + 1 < item.questions.length ? 'Next question' : 'Finish'}</button></div>`;
       const ta = $('#ta', body);
-      const timer = makeTimer($('#tm', body), 45, () => { rec && rec.stop(); $('#micLbl', body).textContent = 'Time is up'; });
+      const stopVoice = () => { if (vrec) { const r = vrec, k = q; vrec = null; r.stop().then(url => { voices[k] = url; }); } };
+      const timer = makeTimer($('#tm', body), 45, () => { rec && rec.stop(); stopVoice(); $('#micLbl', body).textContent = 'Time is up'; });
       timer.start();
-      if (srAvailable()) {
+      if (wantVoice()) startRecording().then(r => { vrec = r; }).catch(() => { const l = $('#micLbl', body); if (l) l.textContent = 'Microphone blocked: answer out loud'; });
+      if (srAvailable() && wantText()) {
         rec = listen({
           onText: t => { ta.value = t; },
           onEnd: () => { },
           onBlocked: () => { $('#micLbl', body).textContent = 'Microphone blocked: answer out loud, and type key points if you like'; }
         });
       }
-      $('#nx', body).addEventListener('click', () => { timer.stop(); rec && rec.stop(); rec = null; answers[q] = ta.value.trim(); q++; setTimeout(ask, 300); });
+      $('#nx', body).addEventListener('click', () => { timer.stop(); rec && rec.stop(); rec = null; stopVoice(); answers[q] = ta.value.trim(); q++; setTimeout(ask, 400); });
     };
     mountPlayer($('#pl', body), [{ s: 1, t: item.questions[q] }], { label: '▶ Hear the question', onFirstEnd: answer });
   };
   const review = () => {
     const any = answers.some(a => a);
     body.innerHTML = `<h2 style="margin-bottom:10px;">Your answers</h2>
-      ${item.questions.map((qq, k) => `<div class="prompt-box"><b>${k + 1}. ${esc(qq)}</b><p style="margin:8px 0 0;">${answers[k] ? esc(answers[k]) : '<span class="hint">(no transcript)</span>'}</p>${answers[k] ? `<p class="hint" style="margin:6px 0 0;">${wordCount(answers[k])} words</p>` : ''}</div>`).join('')}
+      ${voices.some(Boolean) ? '<p class="hint">Play your recordings back. Listen for long pauses, filler words (um, uh), and words that were hard to understand.</p>' : ''}
+      ${item.questions.map((qq, k) => `<div class="prompt-box"><b>${k + 1}. ${esc(qq)}</b>${voices[k] ? `<audio controls src="${voices[k]}" preload="auto" style="display:block; width:100%; margin-top:8px;"></audio>` : ''}<p style="margin:8px 0 0;">${answers[k] ? esc(answers[k]) : wantText() ? '<span class="hint">(no transcript)</span>' : ''}</p>${answers[k] ? `<p class="hint" style="margin:6px 0 0;">${wordCount(answers[k])} words</p>` : ''}</div>`).join('')}
       <p class="hint">Strong answers usually run 80–120 words in 45 seconds, give a clear opinion, and add a reason or example.</p>
       <div class="row"><button class="btn ai-only" id="fbBtn" ${any ? '' : 'disabled'}>Score my answers with Claude</button>${any ? askBtnHtml(`You are an experienced, fair TOEFL iBT speaking rater. Below are my answers to the TOEFL iBT (2026 format) "Take an Interview" task. Each answer was spoken for about 45 seconds and turned into text by speech recognition, so ignore obvious transcription glitches and missing punctuation. Score me on the 0 to 5 scale (half points allowed).
 
@@ -2052,6 +2134,19 @@ const saveSRS = () => store.set('toefl26-awl-srs', SRS);
 const dayStr = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const addDays = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return dayStr(d); };
 const AWL_ALL = () => (DATA.awl || []).flatMap(s => s.words.map(w => Object.assign({ sub: s.n }, w)));
+// My words: words saved by tapping them in a passage or transcript.
+let MYWORDS = store.get('toefl26-mywords', []);
+const saveMyWords = () => store.set('toefl26-mywords', MYWORDS);
+let AWL_INDEX = null;
+const awlFind = t => { if (!AWL_INDEX) { AWL_INDEX = {}; AWL_ALL().forEach(w => { AWL_INDEX[w.t.toLowerCase()] = w; }); } return AWL_INDEX[t.toLowerCase()]; };
+// A saved word as a word card. AWL words keep their meaning and examples.
+function myCard(m) {
+  const a = awlFind(m.t);
+  return { t: m.t, p: a ? a.p : '', k: m.k || (a ? a.k : ''), d: a ? a.d : '', x: [m.x, ...(a ? a.x : [])].filter(Boolean), sub: 'My words', mine: true };
+}
+const MY_CARDS = () => MYWORDS.map(myCard);
+// Every word in spaced review: the AWL plus saved words that aren't on it.
+const ALL_WORDS = () => AWL_ALL().concat(MY_CARDS().filter(c => !awlFind(c.t)));
 const wkey = w => w.t.toLowerCase();
 const boxOf = w => (SRS[wkey(w)] || {}).box || 0; // 0 = never studied
 const isDue = w => { const r = SRS[wkey(w)]; return !r || r.due <= dayStr(); };
@@ -2072,7 +2167,8 @@ const WORD_MODES = [
 function renderWordsTab() {
   setHeader('Words', false);
   const all = AWL_ALL();
-  const due = dueWords(all);
+  const due = dueWords(ALL_WORDS());
+  const mine = MY_CARDS(), mineDue = dueWords(mine).length;
   const known = all.filter(w => boxOf(w) >= 5).length;
   const mode = SETTINGS.wordMode || 'def';
   stage.innerHTML = `
@@ -2085,6 +2181,13 @@ function renderWordsTab() {
     <div><span class="lbl">How to practice</span>
       <div class="seg" id="modeSeg">${WORD_MODES.map(m => `<button data-mode="${m.id}" class="${mode === m.id ? 'active' : ''}">${m.label}</button>`).join('')}</div></div>
     <section class="sec" style="margin-top:14px;">
+      <div class="sec-head"><h2>My words</h2><span class="sec-meta">${mine.length} saved</span></div>
+      <div class="deck">
+        <div class="deck-sub">${mine.length ? esc(MYWORDS.slice(-6).reverse().map(m => m.t).join(', ')) + (mine.length > 6 ? '…' : '') + (mineDue ? ` · ${mineDue} due` : '') : 'Tap any word in a reading passage or a transcript to save it here. Saved words join your spaced review.'}</div>
+        ${mine.length ? `<div class="row" style="margin-top:10px; gap:8px;"><button class="btn small" id="myStudy">▶ Study</button><button class="btn ghost small" id="myList">📋 See all</button></div>` : ''}
+      </div>
+    </section>
+    <section class="sec">
       <div class="sec-head"><h2>Sublists</h2><span class="sec-meta">known / total</span></div>
       ${(DATA.awl || []).map(s => {
         const k = s.words.filter(w => boxOf(w) >= 5).length, d = dueWords(s.words).length, seen = s.words.filter(w => boxOf(w) > 0).length;
@@ -2108,7 +2211,77 @@ function renderWordsTab() {
     go(() => runWords(cards, { title: `Sublist ${n}` }));
   }));
   $$('[data-preview]').forEach(b => b.addEventListener('click', () => go(() => previewWords(DATA.awl.find(x => x.n === +b.dataset.preview)))));
+  const ms = $('#myStudy'); if (ms) ms.addEventListener('click', () => {
+    const d = shuffle(dueWords(mine)), fresh = mine.filter(w => !boxOf(w)), rest = shuffle(mine.filter(w => boxOf(w) && !isDue(w)));
+    go(() => runWords([...d, ...fresh, ...rest].slice(0, 15), { title: 'My words' }));
+  });
+  const ml = $('#myList'); if (ml) ml.addEventListener('click', () => go(renderMyWords));
 }
+function renderMyWords() {
+  enterSub(); setHeader('My words', true);
+  const paint = () => {
+    stage.innerHTML = `<h1>My words</h1>
+      <p class="sub">${MYWORDS.length} saved. Tap ✕ to remove a word.</p>
+      ${MYWORDS.length ? MYWORDS.slice().reverse().map(m => { const c = myCard(m); return `<div class="deck">
+        <div class="deck-top"><b>${esc(m.t)}</b><span class="row" style="gap:6px;"><span class="badge ${boxOf(c) >= 5 ? 'on' : ''}">${boxOf(c) ? `level ${boxOf(c)}` : 'new'}</span><button class="btn ghost small" data-del="${esc(m.t)}" aria-label="Remove ${esc(m.t)}">✕</button></span></div>
+        ${c.k ? `<div class="w-ko" style="text-align:left;">${esc(c.k)}</div>` : ''}
+        ${m.x ? `<div class="deck-sub">${fillEx(m.x, m.t)}</div>` : ''}</div>`; }).join('') : '<p class="hint">No saved words yet.</p>'}`;
+    $$('[data-del]').forEach(b => b.addEventListener('click', () => { MYWORDS = MYWORDS.filter(m => m.t !== b.dataset.del); saveMyWords(); paint(); }));
+  };
+  paint();
+}
+// Tap a word in a passage, notice, or transcript to save it (not during tests).
+const TAP_AREAS = '.doc, .passage, .transcript, .model, .prompt-box, .post';
+function wordAt(x, y) {
+  let node, off;
+  if (document.caretPositionFromPoint) { const p = document.caretPositionFromPoint(x, y); if (p) { node = p.offsetNode; off = p.offset; } }
+  else if (document.caretRangeFromPoint) { const r = document.caretRangeFromPoint(x, y); if (r) { node = r.startContainer; off = r.startOffset; } }
+  if (!node || node.nodeType !== 3) return null;
+  const t = node.nodeValue, isW = c => /[A-Za-z'’-]/.test(c || '');
+  let a = off, b = off;
+  while (a > 0 && isW(t[a - 1])) a--;
+  while (b < t.length && isW(t[b])) b++;
+  const word = t.slice(a, b).replace(/^['’-]+|['’-]+$/g, '').replace(/['’]s$/i, '');
+  if (word.length < 3 || !/^[A-Za-z]/.test(word)) return null;
+  // The sentence around it, with the word blanked out, for review cards.
+  const full = (node.parentElement.closest('p, .doc, .passage') || node.parentElement).textContent;
+  const at = full.indexOf(t.slice(a, b)) >= 0 ? full.indexOf(t.slice(Math.max(0, a - 20), b)) + Math.min(20, a) : -1;
+  let sent = '';
+  if (at >= 0) {
+    const st = Math.max(full.lastIndexOf('. ', at), full.lastIndexOf('? ', at), full.lastIndexOf('! ', at), full.lastIndexOf('\n', at));
+    const en = [full.indexOf('. ', at), full.indexOf('? ', at), full.indexOf('! ', at), full.indexOf('\n', at)].filter(i => i >= 0);
+    sent = full.slice(st < 0 ? 0 : st + 1, en.length ? Math.min(...en) + 1 : full.length).trim();
+  }
+  const blank = sent && sent.length < 260 ? sent.replace(new RegExp(`\\b${word.replace(/[-']/g, '.')}\\b`, 'i'), '_______') : '';
+  return { word, x: blank.includes('_______') ? blank : '' };
+}
+function showWordPop(hit) {
+  $$('.word-pop').forEach(p => p.remove());
+  const a = awlFind(hit.word), saved = MYWORDS.some(m => m.t.toLowerCase() === hit.word.toLowerCase());
+  const pop = document.createElement('div'); pop.className = 'word-pop'; pop.setAttribute('role', 'dialog');
+  pop.innerHTML = `<div class="wp-top"><b class="wp-word">${esc(hit.word)}</b><button class="btn ghost small" data-wsay aria-label="Hear the word">🔊</button><button class="icon-btn wp-x" aria-label="Close">✕</button></div>
+    ${a ? `<div class="wp-mean"><span class="w-ko">${esc(a.k)}</span> · ${esc(a.d)}</div><div class="hint">Academic Word List, sublist ${a.sub}</div>` : ''}
+    ${saved ? '<p class="hint" style="margin:8px 0 0;">Already in My words.</p>' : `<input class="field-in" id="wpMean" placeholder="${a ? 'Your own note (optional)' : 'Meaning or note (optional)'}" autocomplete="off">
+    <div class="row" style="margin-top:8px;"><button class="btn small" id="wpSave">＋ Save to My words</button></div>`}`;
+  document.body.appendChild(pop);
+  const close = () => { pop.remove(); document.removeEventListener('pointerdown', outside, true); };
+  const outside = e => { if (!pop.contains(e.target)) close(); };
+  setTimeout(() => document.addEventListener('pointerdown', outside, true), 0);
+  $('.wp-x', pop).addEventListener('click', close);
+  $('[data-wsay]', pop).addEventListener('click', () => speak([{ s: 0, t: hit.word }]));
+  const sv = $('#wpSave', pop);
+  if (sv) sv.addEventListener('click', () => {
+    MYWORDS.push({ t: a ? a.t : hit.word.toLowerCase(), k: ($('#wpMean', pop).value || '').trim(), x: hit.x, added: dayStr() });
+    saveMyWords(); buzz(15); toast(`Saved "${hit.word}" to My words.`); close();
+  });
+}
+stage.addEventListener('click', e => {
+  if (document.body.classList.contains('in-test')) return;
+  const area = e.target.closest(TAP_AREAS);
+  if (!area || e.target.closest('summary, button, a, input, textarea, select, label, .player')) return;
+  const sel = window.getSelection && window.getSelection(); if (sel && !sel.isCollapsed) return;
+  const hit = wordAt(e.clientX, e.clientY); if (hit) showWordPop(hit);
+});
 
 function previewWords(sub) {
   enterSub(); setHeader(`Sublist ${sub.n} preview`, true);
@@ -2160,7 +2333,8 @@ function runWords(cards, opts = {}) {
   keepAwake(mode === 'listen');
   const card = () => {
     const w = cards[i];
-    const m = mode === 'cloze' && !w.x.length ? 'def' : mode;
+    let m = mode === 'cloze' && !w.x.length ? 'def' : mode;
+    if ((m === 'def' || m === 'mean') && !w.d && !w.k) m = w.x.length ? 'cloze' : 'listen';
     setHeader(opts.daily ? dailyTitle() : `${opts.title || 'Words'} · ${i + 1}/${cards.length}`, true);
     const ex = w.x.length ? w.x[Math.floor(Math.random() * w.x.length)] : '';
     const prompt = m === 'def' ? `<p class="w-prompt">${esc(w.d)}</p><div class="w-ko">${esc(w.k)}</div>`
@@ -2169,7 +2343,7 @@ function runWords(cards, opts = {}) {
       : `<div class="w-term">${esc(w.t)} <button class="btn ghost small" data-say aria-label="Hear the word">🔊</button></div>`;
     stage.innerHTML = `<div class="wcard">
       <div class="pbar static" aria-hidden="true"><i style="width:${Math.round(100 * i / cards.length)}%"></i></div>
-      <div class="w-eyebrow">${{ def: 'Meaning', cloze: 'Complete the sentence', listen: 'Listen and spell', mean: 'What does it mean?' }[m]}${w.p ? ` · ${esc(w.p)}` : ''} · Sublist ${w.sub || ''}</div>
+      <div class="w-eyebrow">${{ def: 'Meaning', cloze: 'Complete the sentence', listen: 'Listen and spell', mean: 'What does it mean?' }[m]}${w.p ? ` · ${esc(w.p)}` : ''} ${w.sub ? ` · ${typeof w.sub === 'number' ? 'Sublist ' + w.sub : esc(w.sub)}` : ''}</div>
       ${prompt}
       ${m === 'mean'
         ? `<div class="row" style="justify-content:center; margin-top:16px;"><button class="btn" id="reveal">Show the meaning</button></div>`
@@ -2256,7 +2430,7 @@ function startDaily() {
   runDailyStep();
 }
 function dailyWordCards() {
-  const all = AWL_ALL(), due = shuffle(dueWords(all));
+  const all = ALL_WORDS(), due = shuffle(dueWords(all));
   const fresh = all.filter(w => !boxOf(w)); // next unseen words, in sublist order
   return [...due, ...fresh].slice(0, 10);
 }
@@ -2299,7 +2473,7 @@ function streak() {
   return n;
 }
 function finishDaily() {
-  markStudyDay();
+  markStudyDay(); logActivity('daily15');
   const res = DAILY.steps.map((s, k) => ({ s, r: DAILY.results[k] }));
   DAILY.finished = true; saveDaily();
   setHeader('Daily 15 done', true);
@@ -2387,8 +2561,8 @@ function templateHtml(kind, open = false) {
 // you can't go back to earlier parts. The real test is adaptive (its second
 // half gets easier or harder); this one uses a fixed mix.
 const TEST_PLANS = {
-  rtest: { section: 'Reading', title: 'Reading practice test', short: 'Reading test', tab: 'reading', parts: ['ctw', 'daily', 'academic', 'ctw', 'daily', 'daily', 'academic'] },
-  ltest: { section: 'Listening', title: 'Listening practice test', short: 'Listening test', tab: 'listening', parts: ['respond', 'convo', 'announce', 'talk', 'respond', 'convo', 'talk'] },
+  rtest: { section: 'Reading', title: 'Reading practice test', short: 'Reading test', tab: 'reading', stage1: 3, parts: ['ctw', 'daily', 'academic', 'ctw', 'daily', 'daily', 'academic'] },
+  ltest: { section: 'Listening', title: 'Listening practice test', short: 'Listening test', tab: 'listening', stage1: 4, parts: ['respond', 'convo', 'announce', 'talk', 'respond', 'convo', 'talk'] },
   // Level check: one part of each main task, about 15 minutes.
   diag: { section: 'Level check', title: 'Level check', short: 'Level check', tab: 'home', parts: ['ctw', 'daily', 'respond', 'convo', 'talk'] }
 };
@@ -2415,17 +2589,56 @@ function audioSecs(p) {
   const words = p.task === 'respond' ? p.item.items.reduce((n, x) => n + wordCount(x.say), 0) : p.item.lines.reduce((n, l) => n + wordCount(l.t), 0);
   return words / 2.5 * (0.9 / (SETTINGS.rate || 0.9)) + (p.task === 'respond' ? p.item.items.length * 2 : 3);
 }
-function pickTestSets(planId) {
-  const plan = TEST_PLANS[planId], taken = {};
-  return plan.parts.map(task => {
+// Adaptive tests, like the real one: the first parts (stage 1) decide whether
+// the rest comes from the easier or the harder half of the sets. A set's
+// difficulty is its "level" field ('easy' or 'hard') if it has one, otherwise
+// an estimate from sentence length and long words, ranked within its task.
+function itemText(it) {
+  return it.text || (it.paras || []).join(' ') || (it.lines || []).map(l => l.t).join(' ') || (it.items || []).map(x => x.say || '').join(' ');
+}
+function diffScore(it) {
+  if (it.level === 'easy') return -1e9;
+  if (it.level === 'hard') return 1e9;
+  const t = itemText(it).replace(/[\[\]]/g, ''), words = t.match(/[A-Za-z']+/g) || [];
+  if (!words.length) return 0;
+  const sents = Math.max(1, (t.match(/[.!?](\s|$)/g) || []).length);
+  const long = words.filter(w => w.length >= 8).length / words.length;
+  const avg = words.reduce((n, w) => n + w.length, 0) / words.length;
+  return words.length / sents * 0.4 + long * 60 + avg * 3;
+}
+const DIFF = {};
+function levelOf(task, idx) {
+  const p = pool(task);
+  if (!DIFF[task] || DIFF[task].n !== p.length) {
+    const lv = {};
+    p.map((it, i) => [diffScore(it), i]).sort((a, b) => a[0] - b[0]).forEach(([, i], r, arr) => { lv[i] = r < arr.length / 2 ? 'easy' : 'hard'; });
+    DIFF[task] = { n: p.length, lv };
+  }
+  return DIFF[task].lv[idx];
+}
+// Picks one set per task: least-used first, never the same set twice in a test.
+function pickModule(tasks, level, taken = {}) {
+  return tasks.map(task => {
     const n = pool(task).length, used = TEST_USED[task] || {}, mine = taken[task] = taken[task] || new Set();
     let cands = [...Array(n).keys()].filter(i => !mine.has(i));
     if (!cands.length) cands = [...Array(n).keys()];
+    if (level) { const lv = cands.filter(i => levelOf(task, i) === level); if (lv.length) cands = lv; }
     const minUse = Math.min(...cands.map(i => used[i] || 0));
     const choice = shuffle(cands.filter(i => (used[i] || 0) === minUse))[0];
     mine.add(choice);
     return { task, idx: choice, item: pool(task)[choice] };
   });
+}
+const pickTestSets = planId => pickModule(TEST_PLANS[planId].parts);
+// After stage 1: 60% or more leads to the harder second stage.
+function routeTest() {
+  const n = TEST.plan.stage1, first = TEST.parts.slice(0, n);
+  let r = 0, t = 0;
+  first.forEach((p, i) => { const rows = gradeTestPart(p, TEST.answers[i]); r += rows.filter(x => x.ok).length; t += rows.length; });
+  TEST.path = t && r / t >= 0.6 ? 'hard' : 'easy';
+  const taken = {};
+  first.forEach(p => (taken[p.task] = taken[p.task] || new Set()).add(p.idx));
+  TEST.parts = first.concat(pickModule(TEST.parts.slice(n).map(p => p.task), TEST.path, taken));
 }
 // Reading: about 36 seconds a question. Listening: 20 seconds a question plus the audio.
 function testSecs(planId, parts) {
@@ -2448,7 +2661,7 @@ function openTest(planId) {
       : `A full ${plan.section} section in test order, under a time limit. ${listen ? 'Each recording plays <b>once</b>, and questions appear after it ends. ' : ''}You can't go back to earlier parts. Your score, an estimated band, and explanations for every question come at the end.`}</p>
     <div class="stat-row"><div class="stat"><b>${q}</b><span>questions in ${parts.length} parts</span></div><div class="stat"><b>${Math.ceil(secs / 60)}</b><span>minutes</span></div></div>
     <div class="score-list">${parts.map((p, i) => `<div><span>${i + 1}. ${esc(TASKS[p.task].name)}</span><span>${partItems(p)} q</span></div>`).join('')}</div>
-    <p class="hint">The real test is adaptive: its second half gets easier or harder depending on the first. This practice test uses a fixed mix, so treat the band as a rough estimate.${last ? ` Your last result: band ${bandFromPct(last.v)} (${Math.round(last.v * 100)}%) on ${new Date(last.t).toLocaleDateString()}.` : ''}</p>
+    <p class="hint">${plan.stage1 ? 'Like the real test, this one is adaptive: your score on the first part decides whether the second part is easier or harder. Treat the band as a rough estimate.' : 'The real test is adaptive: its second half gets easier or harder depending on the first. This short check uses a fixed mix, so treat the bands as rough estimates.'}${last ? ` Your last result: band ${bandFromPct(last.v)} (${Math.round(last.v * 100)}%) on ${new Date(last.t).toLocaleDateString()}.` : ''}</p>
     ${listen ? '<p class="hint">Use headphones, and keep the screen on. Note-taking on paper is allowed, like the real test.</p>' : ''}
     <div class="row" style="justify-content:center; margin-top:12px;"><button class="btn" id="startTest">Start the test</button></div>`;
   $('#startTest').addEventListener('click', () => startTest(planId, parts, secs));
@@ -2513,7 +2726,11 @@ function renderTestPart() {
   paintTestBar();
   $('#testNext').addEventListener('click', () => {
     const u = testUnanswered();
-    const go2 = () => { collectTestPart(); if (last) finishTest(); else { stopSpeech(); TEST.i++; renderTestPart(); window.scrollTo(0, 0); } };
+    const go2 = () => {
+      collectTestPart();
+      if (TEST.plan.stage1 && TEST.i === TEST.plan.stage1 - 1 && !TEST.path) routeTest();
+      if (last) finishTest(); else { stopSpeech(); TEST.i++; renderTestPart(); window.scrollTo(0, 0); }
+    };
     if (u) showConfirm(`${u} question${u > 1 ? 's' : ''} unanswered`, "You can't come back to this part. Continue anyway?", last ? 'Finish test' : 'Next part', go2);
     else go2();
   });
@@ -2542,7 +2759,10 @@ function finishTest() {
   const graded = parts.map((p, i) => ({ p, rows: gradeTestPart(p, TEST.answers[i]) }));
   const right = graded.reduce((n, g) => n + g.rows.filter(r => r.ok).length, 0);
   const total = graded.reduce((n, g) => n + g.rows.length, 0);
-  const pct = total ? right / total : 0, band = bandFromPct(pct);
+  const pct = total ? right / total : 0, path = TEST.path;
+  // Adaptive scoring: the easier second stage caps the band; the harder one adds a little.
+  let band = bandFromPct(path === 'hard' ? Math.min(1, pct + 0.05) : pct);
+  if (path === 'easy') band = Math.min(band, 4);
   // Save: overall test result, each part toward its task's stats, sets used.
   const typeTally = {};
   graded.forEach(({ p, rows }) => {
@@ -2559,7 +2779,9 @@ function finishTest() {
   recordQuiet(planId, right, total);
   // Section estimates for the Home level card.
   const secBand = isR => { const g = graded.filter(x => READING_TASKS.has(x.p.task) === isR); const r = g.reduce((n, x) => n + x.rows.filter(y => y.ok).length, 0), t = g.reduce((n, x) => n + x.rows.length, 0); return t ? { b: bandFromPct(r / t), pct: r / t, r, t } : null; };
-  const rB = secBand(true), lB = secBand(false);
+  let rB = secBand(true), lB = secBand(false);
+  if (planId === 'rtest') rB = Object.assign(rB, { b: band });
+  if (planId === 'ltest') lB = Object.assign(lB, { b: band });
   saveLevel(rB, lB, planId);
   if (typeof markStudyDay === 'function') markStudyDay();
   buzz(pct >= 0.8 ? 25 : [25, 70, 25]);
@@ -2578,7 +2800,8 @@ function finishTest() {
     : `<div class="stat-row" style="margin-top:14px;">
       <div class="stat"><b>${band.toFixed(1)}</b><span>estimated band (about ${cefrOf(band)})</span></div>
       <div class="stat"><b>${fmtMin(used)}</b><span>time used of ${fmtMin(TEST.total)}</span></div></div>
-    <p class="hint">A rough practice estimate on the 1 to 6 scale, not an official score. Real bands come from ETS's adaptive test.</p>`}
+    <p class="hint">A rough practice estimate on the 1 to 6 scale, not an official score. Real bands come from ETS's adaptive test.</p>
+    ${path === 'hard' ? '<p class="notice info">Second part: <b>harder</b>. You scored 60% or more on the first part, so the higher bands were open to you.</p>' : path === 'easy' ? '<p class="notice info">Second part: <b>easier</b>. Bands above 4.0 need the harder second part: score 60% or more on the first part to reach it.</p>' : ''}`}
     ${goal ? `<p class="hint">Your goal is band ${goal.toFixed(1)}. ${[rB && ['Reading', rB.b], lB && ['Listening', lB.b]].filter(Boolean).map(([n, b]) => b >= goal ? `${n}: goal reached ✓` : `${n}: ${(goal - b).toFixed(1)} to go`).join(' · ')}</p>`
       : '<p class="hint">Set a target band and your test date in Settings to see how far you have to go.</p>'}
     <h3>By question type</h3>
@@ -2607,6 +2830,7 @@ function finishTest() {
   window.scrollTo(0, 0);
 }
 function recordQuiet(id, pts, tot) {
+  if (TASKS[id] && TASKS[id].test) logActivity(id);
   const s = STATS[id] || { sets: 0, pts: 0, tot: 0 };
   s.sets++; s.pts += pts; s.tot += tot; STATS[id] = s; store.set('toefl26-stats', STATS);
   if (tot) pushHist(id, pts / tot);
@@ -2771,7 +2995,7 @@ function runMistakes(list, opts = {}) {
   };
   const done = () => {
     if (opts.onDone) return opts.onDone(right, list.length);
-    markStudyDay();
+    markStudyDay(); logActivity(opts.drill ? 'drill' : 'mistakes');
     if (opts.drill) {
       setHeader(opts.drill, true);
       stage.innerHTML = `<div class="result">${stampHtml(right, list.length)}</div>
@@ -2883,7 +3107,7 @@ function levelCardHtml() {
       <div class="lv-head"><span class="hc-kicker">Your level · rough estimate${goal ? ` · goal ${goal.toFixed(1)}` : ''}</span>${countdown}</div>
       <div class="lv-row">${cell('Reading', lv.r)}${cell('Listening', lv.l)}</div>
       <p class="lv-note">Band 1 to 6, from your practice tests (latest ${new Date(newest).toLocaleDateString()}). Writing and Speaking need a rater: use Score in Claude on those tasks.</p>
-      <div class="row" style="margin:0;"><button class="btn ghost small" id="levelBtn">Retake level check</button><button class="btn ghost small" id="goalBtn">${goal ? 'Change goal' : 'Set a goal'}</button></div>
+      <div class="row" style="margin:0;"><button class="btn ghost small" id="levelBtn">Retake level check</button><button class="btn ghost small" id="goalBtn">${goal && SETTINGS.testDate ? 'Change goal' : 'Set goal and test date'}</button></div>
     </div>`;
 }
 function weakCardHtml() {
@@ -2893,6 +3117,89 @@ function weakCardHtml() {
       <span class="hc-kicker">Weak spot</span>
       <span class="hc-title">${esc(w.k)} questions · ${Math.round(w.pct * 100)}% right</span>
       <span class="hc-sub">${w.k === 'Word completion' ? 'Practice Complete the Words.' : 'Practice a short set of them, with a strategy tip.'}</span></button>`;
+}
+
+// ---------- Weekly study plan (from the goal and test date) ----------
+function weekStart() { const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.getTime(); }
+function studyPlan() {
+  const days = daysUntil(SETTINGS.testDate);
+  if (days == null || days < 0) return null;
+  if (days === 0) return { phase: 'Test day', note: 'No new practice today. Eat well, arrive early, and trust your preparation. Good luck!', items: [] };
+  const ws = weekStart(), week = LOG.filter(e => e.t >= ws);
+  const n = ids => week.filter(e => ids.includes(e.id)).length;
+  const studyDays = store.get('toefl26-days', []).filter(d => new Date(d + 'T00:00:00').getTime() >= ws).length;
+  const weak = typeStats(5)[0];
+  const lv = store.get('toefl26-level', null);
+  const T = {
+    level: { label: 'Take the level check', done: lv ? 1 : 0, target: 1, act: () => openTest('diag') },
+    rtest: t => ({ label: 'Full Reading test', done: n(['rtest']), target: t, act: () => openTest('rtest') }),
+    ltest: t => ({ label: 'Full Listening test', done: n(['ltest']), target: t, act: () => openTest('ltest') }),
+    write: t => ({ label: 'Writing tasks (email or discussion)', done: n(['email', 'discuss']), target: t, act: () => renderTab('writing') }),
+    speak: t => ({ label: 'Speaking tasks', done: n(['repeat', 'interview']), target: t, act: () => renderTab('speaking') }),
+    days: t => ({ label: 'Days with practice', done: studyDays, target: t, act: () => (DAILY && !DAILY.finished) ? runDailyStep() : startDaily() }),
+    weak: t => weak && weak.pct < 0.8 ? { label: `Practice ${weak.k} questions`, done: n(['drill']), target: t, act: () => runTypeDrill(weak.k) } : null,
+    mist: t => ({ label: 'Mistake review', done: n(['mistakes']), target: t, act: () => runMistakes(shuffle(dueMistakes()).slice(0, 10)) })
+  };
+  let phase, note, items;
+  if (days <= 3) {
+    phase = 'Final days'; note = 'Keep it light: review your mistakes and rest. Sleep well the night before the test.';
+    items = [T.mist(2), T.days(Math.min(3, days + 1))];
+  } else if (days <= 14) {
+    phase = 'Test mode'; note = 'Final two weeks: full timed tests and careful review of every miss.';
+    items = [T.rtest(2), T.ltest(2), T.write(3), T.speak(3), T.mist(3), T.days(6)];
+  } else if (days <= 42) {
+    phase = 'Practice'; note = 'Practice under test conditions and fix your weakest question types.';
+    items = [T.rtest(1), T.ltest(1), T.write(3), T.speak(3), T.weak(3), T.days(5)];
+  } else {
+    phase = 'Build skills'; note = 'More than six weeks to go: steady daily practice. One full test a week shows your progress.';
+    items = [T.rtest(1), T.ltest(1), T.write(2), T.speak(2), T.weak(2), T.days(5)];
+  }
+  if (!lv) items.unshift(T.level);
+  return { phase, note, items: items.filter(Boolean) };
+}
+function planCardHtml() {
+  const pl = studyPlan(); if (!pl) return '';
+  const done = pl.items.filter(x => x.done >= x.target).length;
+  return `<div class="plan-card">
+      <div class="lv-head"><span class="hc-kicker">This week's plan · ${esc(pl.phase)}</span>${pl.items.length ? `<span class="lv-count">${done}/${pl.items.length}</span>` : ''}</div>
+      <p class="lv-note">${esc(pl.note)}</p>
+      ${pl.items.map((x, i) => `<button class="plan-row${x.done >= x.target ? ' ok' : ''}" data-plan="${i}">
+        <span class="pl-check" aria-hidden="true">${x.done >= x.target ? '✓' : ''}</span>
+        <span class="pl-label">${esc(x.label)}</span>
+        <span class="pl-count">${Math.min(x.done, x.target)}/${x.target}</span></button>`).join('')}
+    </div>`;
+}
+function bindPlanCard() {
+  const pl = studyPlan(); if (!pl) return;
+  $$('[data-plan]').forEach(b => b.addEventListener('click', () => { const it = pl.items[+b.dataset.plan]; if (it) go(it.act); }));
+}
+
+// ---------- Progress report to share (for a teacher or tutor) ----------
+function progressReport() {
+  const lv = store.get('toefl26-level', null) || {}, goal = +SETTINGS.goal || 0, days = daysUntil(SETTINGS.testDate);
+  const now = Date.now(), all = Object.values(HIST).flat();
+  const recent = id => { const h = (HIST[id] || []).slice(-5); return h.length ? Math.round(100 * h.reduce((a, e) => a + e.v, 0) / h.length) : null; };
+  const lines = [`TOEFL iBT practice report · ${new Date().toLocaleDateString()}`, ''];
+  lines.push(`Level (rough practice estimate, band 1-6): Reading ${lv.r ? lv.r.b.toFixed(1) : '-'} · Listening ${lv.l ? lv.l.b.toFixed(1) : '-'}`);
+  if (goal || SETTINGS.testDate) lines.push(`Goal: ${goal ? 'band ' + goal.toFixed(1) : '-'}${SETTINGS.testDate ? ` · Test date ${SETTINGS.testDate}${days != null && days >= 0 ? ` (${days} days left)` : ''}` : ''}`);
+  const pd = new Set(all.filter(e => now - e.t < 30 * 864e5).map(e => new Date(e.t).toDateString())).size, sw = all.filter(e => now - e.t < 7 * 864e5).length;
+  lines.push(`Practice: ${pd} day${pd === 1 ? '' : 's'} in the last 30 · ${streak()}-day streak · ${sw} set${sw === 1 ? '' : 's'} this week`);
+  const tasks = ALL_TASK_IDS.concat(['rtest', 'ltest']).map(id => [TASKS[id].name, recent(id)]).filter(x => x[1] != null);
+  if (tasks.length) { lines.push('', 'Recent accuracy (average of the last 5):'); tasks.forEach(([nm, v]) => lines.push(`- ${nm}: ${v}%`)); }
+  const ts = typeStats(5);
+  if (ts.length) { lines.push('', 'Question types, weakest first:'); ts.slice(0, 5).forEach(x => lines.push(`- ${x.k}: ${Math.round(x.pct * 100)}% (${x.n} answers)`)); }
+  const m = Object.keys(MISTAKES).length;
+  if (m) lines.push('', `Mistake review: ${m} question${m > 1 ? 's' : ''} waiting`);
+  lines.push('', 'Writing and speaking are not scored automatically.', 'App: https://disconnekted.github.io/Toefl-Practice/');
+  return lines.join('\n');
+}
+async function shareReport(out) {
+  const text = progressReport();
+  try { if (navigator.share) { await navigator.share({ title: 'TOEFL practice report', text }); return; } } catch (e) { if (e && e.name === 'AbortError') return; }
+  let copied = false;
+  try { await navigator.clipboard.writeText(text); copied = true; } catch (e) { }
+  out.innerHTML = `<div class="notice info">${copied ? '<b>Copied.</b> Paste it into a message or email.' : 'Copy this report and send it:'}<textarea class="write" readonly style="min-height:200px; margin-top:8px; font-size:13px;"></textarea></div>`;
+  $('textarea', out).value = text;
 }
 
 // ---------- Backup and restore ----------

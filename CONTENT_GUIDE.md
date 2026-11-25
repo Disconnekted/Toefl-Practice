@@ -26,6 +26,12 @@ lines automatically.
 - Speaker numbers `"s"` are 0 or 1. In conversations, alternate them between
   the two people.
 - Escape double quotes inside strings as `\"`. Use straight apostrophes.
+- Practice tests are adaptive. For sets in `ctw`, `daily`, `academic`,
+  `respond`, `convo`, `announce`, and `talk`, add `"level": "easy"` or
+  `"level": "hard"`. Aim for about half of each, so both stages have sets.
+  Easy: shorter sentences, everyday words, details stated directly. Hard:
+  longer sentences, more academic words, more inference. (Sets without a
+  level get an estimate from their text.)
 
 ## Formats by task
 

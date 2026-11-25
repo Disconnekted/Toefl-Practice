@@ -124,6 +124,44 @@
     'Study a sublist below to add words to your review. · 0 known': '아래 서브리스트를 공부하면 복습 목록에 단어가 추가됩니다. · 0개 암기',
     'Install app': '앱 설치', 'Fill in the missing letters.': '빠진 철자를 채우세요.',
 
+
+    // Weekly plan
+    "This week's plan · Build skills": '이번 주 계획 · 실력 쌓기', "This week's plan · Practice": '이번 주 계획 · 실전 연습',
+    "This week's plan · Test mode": '이번 주 계획 · 시험 모드', "This week's plan · Final days": '이번 주 계획 · 마무리',
+    "This week's plan · Test day": '이번 주 계획 · 시험 당일',
+    'Take the level check': '레벨 테스트 보기', 'Writing tasks (email or discussion)': '쓰기 과제 (이메일 또는 토론)',
+    'Speaking tasks': '말하기 과제', 'Days with practice': '공부한 날',
+    'More than six weeks to go: steady daily practice. One full test a week shows your progress.': '6주 넘게 남았습니다. 매일 꾸준히 연습하세요. 일주일에 한 번 전체 모의고사로 실력 변화를 확인하세요.',
+    'Practice under test conditions and fix your weakest question types.': '실제 시험처럼 연습하고 가장 약한 문제 유형을 보완하세요.',
+    'Final two weeks: full timed tests and careful review of every miss.': '마지막 2주입니다. 시간을 재고 전체 모의고사를 보며 틀린 문제를 꼼꼼히 복습하세요.',
+    'Keep it light: review your mistakes and rest. Sleep well the night before the test.': '가볍게 하세요. 오답을 복습하고 쉬세요. 시험 전날에는 푹 주무세요.',
+    'No new practice today. Eat well, arrive early, and trust your preparation. Good luck!': '오늘은 새로 공부하지 마세요. 잘 먹고 일찍 도착하고, 준비한 것을 믿으세요. 행운을 빌어요!',
+    'Set goal and test date': '목표와 시험 날짜 정하기',
+    // Report
+    '📤 Share my progress': '📤 학습 기록 공유하기',
+    // Adaptive tests
+    'Adaptive, like the real test: all three task types, about 25 minutes. Estimated band at the end.': '실제 시험처럼 적응형: 세 가지 과제, 약 25분. 마지막에 예상 밴드.',
+    'Adaptive, like the real test: all four task types, each recording plays once. Estimated band at the end.': '실제 시험처럼 적응형: 네 가지 과제, 녹음은 한 번만 재생. 마지막에 예상 밴드.',
+    'Like the real test, this one is adaptive: your score on the first part decides whether the second part is easier or harder. Treat the band as a rough estimate.': '실제 시험처럼 적응형입니다. 앞부분 점수에 따라 뒷부분이 쉬워지거나 어려워집니다. 밴드는 대략적인 추정으로 보세요.',
+    'The real test is adaptive: its second half gets easier or harder depending on the first. This short check uses a fixed mix, so treat the bands as rough estimates.': '실제 시험은 적응형이라 앞부분 결과에 따라 뒷부분이 쉬워지거나 어려워집니다. 이 짧은 테스트는 고정된 구성이므로 밴드는 대략적인 추정으로 보세요.',
+    // Speed and recording
+    'Fast 1.25×': '빠르게 1.25×', '🎙 Record yourself and compare': '🎙 내 목소리 녹음해서 비교하기', '🎙 Record again': '🎙 다시 녹음하기',
+    '■ Stop': '■ 정지', 'Recording': '녹음 중', 'Model': '모범 음성', 'You': '내 목소리', '▶ Play model': '▶ 모범 음성 재생',
+    'Listen for missing small words, the stressed words, and where the speaker pauses.': '빠뜨린 작은 단어, 강세가 있는 단어, 화자가 쉬는 곳에 주의해서 들어 보세요.',
+    'Nothing was recorded. Try again.': '녹음된 내용이 없습니다. 다시 해 보세요.',
+    'The microphone is blocked, so recording is off.': '마이크가 차단되어 녹음할 수 없습니다.',
+    'Save my answers as': '답변 저장 방식', 'Text': '텍스트', 'Voice recording': '음성 녹음', 'Both': '둘 다',
+    'Recording your answer': '답변 녹음 중', 'Answer out loud now': '지금 소리 내어 답하세요', 'Time is up': '시간이 끝났습니다',
+    'Play your recordings back. Listen for long pauses, filler words (um, uh), and words that were hard to understand.': '녹음을 다시 들어 보세요. 긴 멈춤, 군말(um, uh), 알아듣기 어려운 단어에 주의하세요.',
+    'Your answers': '내 답변', 'Next question': '다음 질문', 'Finish': '끝내기', 'Do it again': '다시 하기',
+    'Text lets Claude score you. A voice recording lets you hear your pauses, fillers, and pronunciation.': '텍스트로 저장하면 Claude가 채점할 수 있고, 음성으로 녹음하면 멈춤, 군말, 발음을 직접 들어 볼 수 있습니다.',
+    "Text lets Claude score you. A voice recording lets you hear your pauses, fillers, and pronunciation. On many phones, Both doesn't work; pick one.": '텍스트로 저장하면 Claude가 채점할 수 있고, 음성으로 녹음하면 멈춤, 군말, 발음을 직접 들어 볼 수 있습니다. 휴대폰에서는 둘 다 선택이 안 되는 경우가 많으니 하나를 고르세요.',
+    // Saved words
+    'My words': '내 단어장', '📋 See all': '📋 전체 보기', 'No saved words yet.': '아직 저장한 단어가 없습니다.',
+    'Tap any word in a reading passage or a transcript to save it here. Saved words join your spaced review.': '읽기 지문이나 대본에서 단어를 누르면 여기에 저장됩니다. 저장한 단어는 간격 반복 복습에 추가됩니다.',
+    '＋ Save to My words': '＋ 내 단어장에 저장', 'Already in My words.': '이미 내 단어장에 있습니다.',
+    'Your own note (optional)': '나만의 메모 (선택)', 'Meaning or note (optional)': '뜻이나 메모 (선택)',
+
     // Practice tests
     'Start the test': '시험 시작', 'Finish test': '시험 끝내기', 'Next part ▶': '다음 파트 ▶', 'Next part': '다음 파트',
     'All answered': '모두 답함', 'Take another test': '다른 모의고사 보기', 'Take it again': '다시 보기', 'Back to Home': '홈으로',
@@ -243,6 +281,10 @@
     [/^Continue: step (\d+) of (\d+)$/, '이어서 하기: $1 / $2단계'],
     [/^(\d+) words?$/, '$1단어'], [/^(\d+) recorded clips available\.$/, '녹음 클립 $1개 사용 가능.'],
     [/^Your progress is stored only on this device\. Save a backup file before changing phones or clearing browser data\. Your API key is never included\. Last backup: (.+)\.$/, (m, d) => `학습 기록은 이 기기에만 저장됩니다. 휴대폰을 바꾸거나 브라우저 데이터를 지우기 전에 백업 파일을 저장하세요. API 키는 포함되지 않습니다. 마지막 백업: ${d === 'never' ? '없음' : d}.`],
+    [/^(\d+) saved$/, '$1개 저장'], [/^(\d+) saved\. Tap ✕ to remove a word\.$/, '$1개 저장됨. ✕를 누르면 삭제됩니다.'],
+    [/^Saved "(.+)" to My words\.$/, '"$1"을(를) 내 단어장에 저장했습니다.'], [/^Academic Word List, sublist (\d+)$/, 'Academic Word List, 서브리스트 $1'],
+    [/^Practice (.+) questions$/, (m, a) => `${tr(a) || a} 문제 연습`], [/^level (\d)$/, '레벨 $1'], [/^new$/, '새 단어'],
+    [/^Question (\d+) of (\d+)$/, '질문 $1 / $2'], [/^Sentence (\d+) of (\d+)$/, '문장 $1 / $2'],
     [/^(\d+) words? due for review$/, '복습할 단어 $1개'], [/^(\d+) missed questions? to review$/, '복습할 오답 $1개'],
     [/^Mistake review · (\d+)\/(\d+)$/, '오답 복습 · $1/$2'],
     [/^Band 1 to 6, from your practice tests \(latest (.+)\)\. Writing and Speaking need a rater: use Score in Claude on those tasks\.$/, '1~6 밴드, 연습 시험 기준 (최근 $1). 쓰기와 말하기는 채점자가 필요하니 해당 과제에서 Claude로 채점을 이용하세요.'],

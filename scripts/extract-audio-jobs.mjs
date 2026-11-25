@@ -20,10 +20,14 @@ const DATA = ctx.__DATA, key = ctx.__key;
 // Kokoro voices. The first letter is the accent: a = American, b = British.
 // Each practice set gets one pair, so a conversation always has two
 // different speakers and accents vary across sets, like the real test.
+// Mixed pairs (one British, one American speaker) are common on the real test.
+// Existing clips keep their voice; new sets are spread across all pairs.
 const PAIRS = [
   ['af_heart', 'am_michael'],
   ['bf_emma', 'bm_george'],
   ['am_fenrir', 'af_bella'],
+  ['bf_isabella', 'am_adam'],
+  ['bm_lewis', 'af_nicole'],
 ];
 const jobs = new Map();
 function add(item, s, text) {

@@ -499,6 +499,28 @@ label.opt.wrong{ border-color:var(--red); background:color-mix(in srgb, var(--re
 .lang-btn{ font-family:var(--type); font-weight:800; font-size:14px; }
 html[lang=ko] .task-how.ko{ display:none; }
 html[lang=ko] body{ word-break:keep-all; }
+
+/* Weekly plan */
+.plan-card{ border-radius:var(--r); background:var(--card); box-shadow:var(--shadow); padding:16px 18px 10px; margin:0 0 12px; }
+.plan-card .hc-kicker{ font-weight:700; font-size:11.5px; text-transform:uppercase; letter-spacing:0.06em; opacity:0.7; }
+.plan-row{ display:grid; grid-template-columns:26px 1fr auto; gap:10px; align-items:center; width:100%; background:none; border:none; border-top:1px solid var(--rule); padding:11px 0; color:var(--ink); text-align:left; cursor:pointer; font-size:14.5px; min-height:48px; }
+.pl-check{ width:22px; height:22px; border-radius:50%; border:2px solid var(--rule); display:grid; place-items:center; font-size:13px; font-weight:800; color:#fff; }
+.plan-row.ok .pl-check{ background:var(--green); border-color:var(--green); }
+.plan-row.ok .pl-label{ color:var(--muted); text-decoration:line-through; text-decoration-color:var(--rule); }
+.pl-count{ font-weight:700; font-variant-numeric:tabular-nums; color:var(--muted); font-size:13px; }
+/* Recording */
+.rec-box{ margin-top:12px; }
+.rec-compare{ display:grid; gap:10px; margin-top:10px; }
+.rec-compare audio{ width:100%; }
+.rec-compare .player{ margin-bottom:0; }
+/* Saved words */
+.word-pop{ position:fixed; left:50%; transform:translateX(-50%); bottom:calc(16px + env(safe-area-inset-bottom,0px)); z-index:250; width:min(520px, calc(100vw - 24px)); background:var(--card); color:var(--ink); border-radius:18px; box-shadow:0 12px 40px -8px rgba(0,0,0,0.35); padding:14px 16px; }
+.wp-top{ display:flex; align-items:center; gap:8px; }
+.wp-word{ font-family:var(--type); font-weight:800; font-size:20px; margin-right:auto; }
+.wp-x{ box-shadow:none; background:var(--paper); }
+.wp-mean{ margin:6px 0 2px; font-size:14.5px; }
+.wp-mean .w-ko{ display:inline; margin:0; font-weight:700; }
+.doc, .passage, .transcript p, .model, .prompt-box, .post{ cursor:text; }
 </style>
 </head>
 <body>
