@@ -727,6 +727,22 @@ const KO_HOW = {
   interview: '면접관이 네 가지 질문을 합니다. 각 질문이 끝나면 바로 약 45초 동안 답하세요. 말한 내용이 글로 바뀌어 나중에 다시 확인할 수 있습니다.'
 };
 
+// Korean interface: the task instructions above, plus labels in i18n.js.
+I18N.add(Object.fromEntries(Object.entries(KO_HOW).filter(([id]) => TASKS[id] && TASKS[id].how).map(([id, ko]) => [TASKS[id].how, ko])));
+function paintLangBtn() {
+  const b = $('#langBtn'); if (!b) return;
+  const ko = SETTINGS.lang === 'ko';
+  b.textContent = ko ? 'EN' : '한';
+  b.setAttribute('aria-label', ko ? 'Show in English' : '한국어로 보기');
+  b.classList.add('notranslate');
+}
+I18N.set(SETTINGS.lang || 'en'); paintLangBtn();
+$('#langBtn').addEventListener('click', () => {
+  SETTINGS.lang = SETTINGS.lang === 'ko' ? 'en' : 'ko'; saveSettings();
+  I18N.set(SETTINGS.lang); paintLangBtn();
+  toast(SETTINGS.lang === 'ko' ? '한국어 화면. 시험 지문과 문제는 영어로 그대로 나옵니다.' : 'English interface');
+});
+
 const TEXT_SIZES = [0.9, 1, 1.12, 1.25, 1.4];
 function applyTextSize() { document.documentElement.style.setProperty('--rs', String(SETTINGS.textScale || 1)); }
 function stepText(dir) {
@@ -2866,7 +2882,7 @@ function levelCardHtml() {
   return `<div class="level-card">
       <div class="lv-head"><span class="hc-kicker">Your level · rough estimate${goal ? ` · goal ${goal.toFixed(1)}` : ''}</span>${countdown}</div>
       <div class="lv-row">${cell('Reading', lv.r)}${cell('Listening', lv.l)}</div>
-      <p class="lv-note">Band 1 to 6, from your practice tests (latest ${new Date(newest).toLocaleDateString()}). Writing and Speaking need a rater: use <b>Score in Claude</b> on those tasks.</p>
+      <p class="lv-note">Band 1 to 6, from your practice tests (latest ${new Date(newest).toLocaleDateString()}). Writing and Speaking need a rater: use Score in Claude on those tasks.</p>
       <div class="row" style="margin:0;"><button class="btn ghost small" id="levelBtn">Retake level check</button><button class="btn ghost small" id="goalBtn">${goal ? 'Change goal' : 'Set a goal'}</button></div>
     </div>`;
 }
