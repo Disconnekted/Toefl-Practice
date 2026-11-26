@@ -74,7 +74,7 @@
 
     // Task screen
     '◀ Previous': '◀ 이전', 'Next set ▶': '다음 세트 ▶', 'Check answers': '정답 확인', 'Check': '확인',
-    '✨ New set from Claude': '✨ Claude로 새 세트 만들기', 'Score in Claude ↗': 'Claude로 채점 ↗', 'Ask Claude why ↗': 'Claude에게 이유 묻기 ↗',
+    '✨ New set from Claude': '✨ Claude로 새 세트 만들기', 'Score in Claude ↗': 'Claude로 채점 ↗',
     'Score my writing with Claude': 'Claude로 내 글 채점하기', 'Show model answer': '모범 답안 보기', '📝 Answer template': '📝 답안 틀',
     'Insert template': '틀 넣기', '📄 Passage': '📄 지문', 'Transcript': '대본',
     '▶ Play audio': '▶ 오디오 재생', '▶ Play': '▶ 재생', '▶ Play the recording': '▶ 녹음 재생', '▶ Play the recording (once)': '▶ 녹음 재생 (한 번만)',
@@ -208,6 +208,7 @@
     'Band 1 to 6, from your practice tests. Writing and Speaking come from the full practice test\'s checklists, so they are rougher.': '1~6 밴드, 연습 시험 기준. 쓰기와 말하기는 전체 모의고사의 점검표로 낸 값이라 더 대략적입니다.',
     'Band 1 to 6, from your practice tests. Take the full practice test to add Writing and Speaking estimates.': '1~6 밴드, 연습 시험 기준. 전체 모의고사를 보면 쓰기와 말하기 추정치도 나옵니다.',
     "Time's up. Your response has been submitted.": '시간이 끝나 답안이 제출되었습니다.',
+    'The audio stopped. Your phone may have paused it.': '오디오가 멈췄습니다. 휴대폰이 일시 정지했을 수 있습니다.', '▶ Continue': '▶ 계속 듣기', 'Show the questions': '문제 보기',
     // Saved words
     'My words': '내 단어장', '📋 See all': '📋 전체 보기', 'No saved words yet.': '아직 저장한 단어가 없습니다.',
     'Tap any word in a reading passage or a transcript to save it here. Saved words join your spaced review.': '읽기 지문이나 대본에서 단어를 누르면 여기에 저장됩니다. 저장한 단어는 간격 반복 복습에 추가됩니다.',

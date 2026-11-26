@@ -279,8 +279,28 @@ function fillVoiceSelects() {
 // mid-sentence, so seeking jumps to the nearest sentence.
 const TURN_GAP = 0.45; // seconds of silence between speakers on the timeline
 let ACTIVE_PB = null;
-function createPlayback(lines, { onProgress, onEnd } = {}) {
+function createPlayback(lines, { onProgress, onEnd, onStall } = {}) {
   let mode = null, ready = null, playing = false, token = -1;
+  // Watchdog: phones can pause audio on their own (a notification, another
+  // app, the screen turning off). If the position stops moving while we think
+  // it's playing, try to resume; if that fails, tell the player (onStall).
+  let wd = 0, lastNow = -1, lastMove = 0, nudged = false, stalled = false;
+  const watch = () => {
+    clearInterval(wd); lastNow = -1; lastMove = performance.now(); nudged = false; stalled = false;
+    wd = setInterval(() => {
+      if (!playing || token !== playToken) { clearInterval(wd); return; }
+      // Read the audio element directly: screen-off throttling can delay the drawing loop.
+      const n = mode === 'studio' && studioPlayer.src ? offs[line] + studioPlayer.currentTime : me.now();
+      if (Math.abs(n - lastNow) > 0.05) { lastNow = n; lastMove = performance.now(); nudged = false; if (stalled) { stalled = false; onStall && onStall(false); } return; }
+      const idle = (performance.now() - lastMove) / 1000;
+      if (idle > 2.5 && !nudged && mode === 'studio') {
+        nudged = true;
+        if (studioPlayer.paused && studioPlayer.src) { const pr = studioPlayer.play(); if (pr && pr.catch) pr.catch(() => { }); }
+        else if (studioPlayer.ended) studioPlayer.onended && studioPlayer.onended();
+      }
+      if (idle > (mode === 'tts' ? 12 : 6) && !stalled) { stalled = true; onStall && onStall(true); }
+    }, 1000);
+  };
   // studio state (media seconds)
   let urls = [], durs = [], offs = [], total = 0, pos = 0, line = 0, gapTimer = null, raf = 0;
   // tts state
@@ -377,7 +397,10 @@ function createPlayback(lines, { onProgress, onEnd } = {}) {
     playing = true; tick();
     if (mode === 'studio') startStudio(me.atEnd() ? 0 : pos);
     else startTTS(me.atEnd() ? 0 : k);
+    watch();
   };
+  // Pick up again from where the audio stopped (after a phone interruption).
+  me.resume = () => { if (playing) me.pause(); return me.play(); };
   me.pause = () => {
     if (!playing) return;
     playing = false; clearTimeout(gapTimer); cancelAnimationFrame(raf);
@@ -453,6 +476,17 @@ function mountPlayer(el, lines, { label = '▶ Play audio', onFirstEnd, once = f
     }
   };
   const pb = createPlayback(lines, {
+    onStall: on => {
+      let box = $('.ap-stall', el);
+      if (!on) { if (box) box.remove(); return; }
+      if (box) return;
+      el.insertAdjacentHTML('beforeend', `<div class="ap-stall notice info"><span>The audio stopped. Your phone may have paused it.</span>
+        <div class="row" style="margin-top:8px;"><button class="btn small" data-stall="go">▶ Continue</button>${onFirstEnd ? '<button class="btn ghost small" data-stall="skip">Show the questions</button>' : ''}</div></div>`);
+      box = $('.ap-stall', el);
+      $('[data-stall=go]', box).addEventListener('click', () => { box.remove(); pb.resume(); });
+      const sk = $('[data-stall=skip]', box);
+      if (sk) sk.addEventListener('click', () => { box.remove(); pb.interrupt(); stopSpeech(); paint(); if (!firstDone) { firstDone = true; onFirstEnd(); } });
+    },
     onProgress: (f, now, T) => { if (!dragging) show(f, now, T); paint(); },
     onEnd: ok => {
       paint();
@@ -1219,7 +1253,7 @@ function mcqHtml(qs, pfx, startNum = 1) {
     </fieldset>`).join('');
 }
 // track (optional): { task, item, qi(i) } records results for mistake review
-// and adds an "Ask Claude why" button to missed questions.
+// and records each answer for mistake review and question-type stats.
 function gradeMcq(qs, pfx, root, track) {
   let right = 0;
   qs.forEach((q, i) => {
@@ -1235,11 +1269,6 @@ function gradeMcq(qs, pfx, root, track) {
       noteResult(track.task, track.item, qi, ok);
       const qt = qType(track.task, reviewQuestion(track.task, track.item, qi) || q);
       noteType(qt, ok); SET_LOG.push({ type: qt, ok });
-      if (!ok && fs && !fs.querySelector('[data-ask]')) {
-        const extra = track.task === 'respond' ? track.item.items[qi].say : track.task === 'vic' ? track.item.items[qi].text.replace(/\{\{|\}\}|\[\[|\]\]/g, '') : '';
-        const rq = reviewQuestion(track.task, track.item, qi) || q;
-        fs.insertAdjacentHTML('beforeend', `<div class="row ask-row">${askBtnHtml(explainPrompt(track.task, track.item, rq, chosen ? q.options[+chosen.value] : '', extra), 'Ask Claude why ↗', 'btn ghost small')}</div>`);
-      }
     }
   });
   return right;
@@ -2881,7 +2910,7 @@ function finishTest() {
           <div>${esc(x.q)}</div>
           ${x.ok ? `<span class="n">✓ ${esc(x.right)}</span>` : `<span class="o">${x.yours ? esc(x.yours) : '(no answer)'}</span> → <span class="n">${esc(x.right)}</span>`}
           ${x.why ? `<div class="w">${esc(x.why)}</div>` : ''}
-          ${x.ok ? '' : `<div class="ask-row">${askBtnHtml(explainPrompt(p.task, p.item, reviewQuestion(p.task, p.item, rows.indexOf(x)) || { q: x.q, right: x.right }, x.yours, p.task === 'respond' ? p.item.items[rows.indexOf(x)].say : ''), 'Ask Claude why ↗', 'btn ghost small')}</div>`}</div>`).join('')}
+          </div>`).join('')}
       </details>`;
     }).join('')}
     <div class="row" style="justify-content:center; margin-top:20px;"><button class="btn ghost" id="again">${planId === 'diag' ? 'Take it again' : 'Take another test'}</button><button class="btn" id="back">${plan.tab === 'home' ? 'Back to Home' : `Back to ${plan.section}`}</button></div>`;
@@ -2970,18 +2999,6 @@ function itemContext(task, item) {
   if (item.lines) return item.lines.map(l => (item.lines.length > 1 ? `${l.name || 'Speaker'}: ` : '') + l.t).join('\n');
   return '';
 }
-function explainPrompt(task, item, q, mine, extra = '') {
-  const ctx = (extra || itemContext(task, item)).slice(0, 5000);
-  const L = 'ABCD';
-  const opts = q.options ? q.options.map((o, i) => `${L[i]}. ${o}`).join('\n') : '';
-  return `I'm practicing for the TOEFL iBT (2026 format), task "${TASKS[task] ? TASKS[task].name : task}". I got this question wrong. Please explain in simple English why the correct answer is right and why my answer is wrong, then give me one tip for questions like this.${koAsk()}
-${ctx ? `\n${task === 'convo' || task === 'announce' || task === 'talk' || task === 'notes' || task === 'respond' ? 'TRANSCRIPT' : 'TEXT'}\n${ctx}\n` : ''}
-QUESTION
-${q.q || 'Choose the best answer.'}
-${opts ? `\nOPTIONS\n${opts}\n` : ''}
-MY ANSWER: ${mine || '(no answer)'}
-CORRECT ANSWER: ${q.options ? q.options[q.answer] : q.right}`;
-}
 
 // ---------- Mistake review ----------
 // Every missed question returns after 1 day, then 3, then 7. Each correct
@@ -3058,7 +3075,6 @@ function runMistakes(list, opts = {}) {
         <p class="hint">${opts.drill ? (ok ? '' : 'Added to your mistake review. It comes back tomorrow.') : ok ? (after ? `Next review in ${MISTAKE_DAYS[after.box]} days.` : 'Cleared from your review list. 🎉') : 'It will come back tomorrow.'}</p>
         ${item.lines ? `<details class="transcript" style="text-align:left;"><summary>Transcript</summary>${item.lines.map(l => `<p>${item.lines.length > 1 ? `<b>${esc(l.name || 'Speaker')}:</b> ` : ''}${esc(l.t)}</p>`).join('')}</details>` : ''}
         <div class="row" style="justify-content:center; margin-top:10px;">
-          ${ok ? '' : askBtnHtml(explainPrompt(t, item, q, q.options[+chosen.value], t === 'respond' ? item.items[m.qi].say : t === 'vic' ? item.items[m.qi].text.replace(/\{\{|\}\}|\[\[|\]\]/g, '') : ''), 'Ask Claude why ↗', 'btn ghost')}
           <button class="btn" id="mnx">${i + 1 < list.length ? 'Next ▶' : 'See results'}</button></div></div>`;
       $('#mnx').addEventListener('click', () => { stopSpeech(); i++; i < list.length ? card() : done(); window.scrollTo(0, 0); });
     });

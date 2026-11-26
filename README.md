@@ -88,9 +88,9 @@ If the model name ever stops working, update it in the same settings section.
   timed section in test order, with an estimated band and explanations at the end.
 - **Mistake review:** questions you miss come back after 1, 3, and 7 days
   (Home card, and inside Daily 15).
-- **Score in Claude ↗ / Ask Claude why ↗:** copies a ready-made prompt and
-  opens claude.ai, so writing and speaking scores and explanations use your
-  claude.ai subscription. No API key needed.
+- **Score in Claude ↗ (optional):** copies a ready-made prompt and opens
+  claude.ai for a detailed writing or speaking score. Everything else,
+  including the instant checklists, works without Claude.
 - **Backup and restore:** Settings → Save backup / Restore from file. Your
   API key is never included in the file.
 - **Answer templates (📝):** above the email, discussion, and interview tasks.
